@@ -48,10 +48,42 @@
 
     .text
 
-    .equ TAG_CONS, 0
-    .equ TAG_NIL,  1
-    .equ TAG_TRUE, 2
-    .equ TAG_MASK, 7
+    .equ TAG_CONS,   0
+    .equ TAG_NIL,    1
+    .equ TAG_TRUE,   2   /* superseded below: wsm_eq/wsm_atom no longer emit this.
+                          * Left declared, matching wsm-os-target::Tag::True itself
+                          * (not removed there either -- a separate, bigger question).
+                          */
+    .equ TAG_SYMBOL, 4
+    .equ TAG_MASK,   7
+
+    /* Canonical `t` as an ordinary Symbol, not a manufactured Tag::True
+     * primitive -- 2026-09-02 owner directive: "() не визначаємо... t має
+     * пройти тим самим шляхом, що й будь-який інший Symbol." Applied here
+     * the same way as fpga-lisp's SYM_T=79 fix, with one honest difference
+     * this ABI has and fpga-lisp's frozen bootstrap table does not:
+     * wsm-os-target's Symbol ids are documented as "image-local-interned"
+     * (cml/src/x86_freestanding.rs assigns each compiled program's own
+     * quoted symbols sequential ids from a sorted BTreeSet, starting at 1)
+     * -- there is no single canonical id for `t` shared across programs to
+     * reuse, unlike fpga-lisp's fixed global symbol table. Reserving
+     * SYMBOL_ID_MAX (wsm-os-target's own documented maximum valid symbol
+     * id, 2^61-1) as a sentinel for `t` makes a real collision with a
+     * per-program-interned id practically unreachable (a program would
+     * need to intern ~2^61 distinct symbols), but it is NOT a proof of
+     * uniqueness the way a frozen global table would be. A caller that
+     * compares this nucleus's eq/atom "true" result against a *literal*
+     * quoted `t` appearing in that same compiled program's own source via
+     * a second `eq` call would get that program's own (different, small)
+     * interned id for `t` on the other side -- the two encodings would not
+     * compare equal. That composition is not exercised by any of this
+     * repo's harness/ examples today; closing it for real needs either a
+     * shared reserved-id convention baked into cml's symbol assignment
+     * itself, or wsm_eq/wsm_atom consulting the caller's own symbol table
+     * (which these free functions have no access to). Flagging this
+     * honestly rather than presenting the sentinel as a complete fix. */
+    .equ SYM_T_ID,   0x1FFFFFFFFFFFFFFF   /* wsm_os_target::SYMBOL_ID_MAX */
+    .equ SYM_T_WORD, (SYM_T_ID << 3) | TAG_SYMBOL   /* wsm_os_target::encode_symbol(SYM_T_ID) */
 
 /* wsm_cons(context: *mut RuntimeContext [ignored], car: Word, cdr: Word) -> Word */
     .globl wsm_cons
@@ -99,7 +131,7 @@ wsm_eq:
     movl    $TAG_NIL, %eax
     cmpq    %rdx, %rsi
     jne     1f
-    movl    $TAG_TRUE, %eax
+    movabsq $SYM_T_WORD, %rax
 1:  ret
     .size wsm_eq, . - wsm_eq
 
@@ -107,7 +139,7 @@ wsm_eq:
     .globl wsm_atom
     .type wsm_atom, @function
 wsm_atom:
-    movl    $TAG_TRUE, %eax
+    movabsq $SYM_T_WORD, %rax
     testq   $TAG_MASK, %rsi
     jnz     1f
     movl    $TAG_NIL, %eax          /* low 3 bits all zero => Tag::Cons => not an atom */

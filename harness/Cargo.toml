@@ -1,0 +1,20 @@
+[package]
+name = "wsm-my-lisp-harness"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "harness-atom"
+path = "src/harness_atom.rs"
+
+[[bin]]
+name = "harness-lambda"
+path = "src/harness_lambda.rs"
+
+[[bin]]
+name = "harness-cons"
+path = "src/harness_cons.rs"
+
+[[bin]]
+name = "harness-eq"
+path = "src/harness_eq.rs"

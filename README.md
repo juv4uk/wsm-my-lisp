@@ -17,6 +17,8 @@ native target execution passes (QEMU/FPGA where in scope). This repo does
 not become authoritative over language semantics by existing — it earns
 authority one proven capability at a time.
 
+**Boundary with `my-lisp/c-runtime` (added 2026-09-03, owner's own framing):** these are two different things, not a duplication. `my-lisp/c-runtime` is an **independent C+asm substrate** for checking the language contract itself and for learning — it proves the same `conformance.my` facts on a third, physically different implementation, alongside Rust and `fpga-lisp`. `wsm-my-lisp` (this repo) is the **self-hosting destination** — where WSM increasingly hosts itself, in WSM's own Lisp+asm, growing toward the owner's real hardware, capability by capability. A representation choice proven out in `my-lisp/c-runtime` (e.g. a tagged-`Value` encoding) is exactly the kind of thing that could later inform this repo's own `asm/nucleus.s` — but the two repos answer different questions and neither absorbs the other.
+
 See `repo.my` for the full scope declaration.
 
 ## Status, 2026-09-02

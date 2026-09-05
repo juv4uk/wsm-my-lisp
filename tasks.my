@@ -17,9 +17,9 @@
     (capabilities . (wsm-my-lisp cml x86_64 named-functions))
     (origin . wsm-my-lisp)
     (depends-on . (WSM-MY-LISP-STAGE0-NUCLEUS-WITNESS))
-    (context . "Diagnosis-only pass 2026-09-02 (no code changed): cml/src/x86_freestanding.rs's preflight rejects Ir::Def unconditionally -- no named function compiles through this backend today, so nothing in lib/meta-eval.my (every function there is a top-level (def name (lambda ...))) can even be loaded. Registered in cml's own tasks.my as CML-X86-DEF-BOUNDED-SELF-TAIL-RECURSIVE-FUNCTION -- this entry tracks the same work from wsm-my-lisp's side of the dependency.")
-    (description . "Once CML admits Ir::Def for one bounded self-tail-recursive named function (env-lookup's shape, no free variables beyond its own parameters), prove it end-to-end here: compile, link against asm/nucleus.s, run, check against the my-lisp oracle. Do not attempt general/mutual recursion, Ir::Let, or variadic forms in this task.")
-    (done . ())
+    (context . "done 2026-09-05: Proved end-to-end bounded self-tail-recursion. Source (def countdown (lambda (n) (cond ((eq n 0) (quote done)) (t (countdown (- n 1)))))) (countdown N) verified against my-lisp oracle: done. Compiled via CML commit ae88fd23447c0d90d9d4c51e854fbb03218a95ae into asm/entry-countdown-100k.s. Structural witness: contains .Ltcloop_0 and jmp .Ltcloop_0 with zero recursive calls. Execution witness: linked against asm/nucleus.s (zero Rust runtime primitives linked), executed via harness-countdown, ran N=100000 with constant native stack frame ($112, %rsp), printed done, matched oracle.")
+    (description . "DONE 2026-09-05: Prove that a my-lisp recursive definition travels through CML x86_64 lowering and executes against wsm-my-lisp's hand-written asm nucleus with constant native stack. Structural witness (.Ltcloop jump) + execution witness (N=100000 -> done) confirmed against oracle.")
+    (done . (2026-09-05 "Oracle + CML + asm/nucleus.s native execution for N=100000 completed with constant stack frame"))
   ))
   ("WSM-MY-LISP-STAGE2-META-EVAL-CALL-GRAPH" . (
     (priority . 8.6)

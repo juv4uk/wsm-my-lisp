@@ -9,8 +9,8 @@ capability. WSM defining WSM — not Rust defining WSM — is the actual
 point: a nucleus small enough to grow the rest of itself from inside,
 the same instinct McCarthy's own eval/apply already had.
 
-`my-lisp` (the Rust implementation) remains the canonical semantic oracle
-and reference implementation for every capability until that capability
+`my-lisp` (the reference Rust implementation) remains the reference semantic oracle
+and implementation for every capability until that capability
 specifically proves parity here: WSM implementation exists, independent
 semantic fixtures pass, Rust↔WSM parity passes, CML admission passes,
 native target execution passes (QEMU/FPGA where in scope). This repo does
@@ -50,6 +50,8 @@ assembled** (`harness/`, `cargo run --bin <name>`):
 | `harness-cons` | `(cons (quote A) (quote B))` (the canonical `FIRST_FIXTURE_SOURCE`) | `(A . B)` | matches `FIRST_FIXTURE_EXPECTED` |
 | `harness-lambda` | `((lambda (x) x) 7)` | `7` | matches (this fixture calls no primitive, so it doesn't exercise the nucleus) |
 | `harness-eq` | direct call, no CML entry | `(eq 41 41)` → `t`, `(eq 41 42)` → `()` | both correct |
+| `harness-countdown` | `(def countdown (lambda (n) (cond ((eq n 0) (quote done)) (t (countdown (- n 1)))))) (countdown 100000)` | `done` | matches oracle; proves bounded native stack (constant frame, `.Ltcloop_0` jump) |
+
 
 All 5 primitives now have at least one real, executed proof: `wsm_cons`/
 `wsm_car`/`wsm_cdr` together via the cons fixture, `wsm_atom` via the atom
@@ -90,8 +92,10 @@ word-tagging, яку вже очікує згенерований CML-код. М
 **Parity witnesses, усі реально ЗАПУЩЕНІ й звірені з oracle, не лише
 зібрані:** `harness-atom` → `t`, `harness-cons` (канонічний
 `FIRST_FIXTURE_SOURCE`) → `(A . B)`, `harness-lambda` → `7`,
-`harness-eq` → `(eq 41 41)`→`t`, `(eq 41 42)`→`()`. Усі 5 примітивів
-мають реальний, виконаний доказ.
+`harness-eq` → `(eq 41 41)`→`t`, `(eq 41 42)`→`()`,
+`harness-countdown` → `(countdown 100000)`→`done` (доводить обмежений стек, стрибок у цикл `.Ltcloop_0` замість рекурсивного `call`).
+Усі 5 примітивів та іменована хвостова рекурсія мають реальний, виконаний доказ.
+
 
 `wsm-os-runtime`'s Rust-реалізація цих самих 5 примітивів **недоторкана**
 і лишається робочим шляхом для `wsm-os-hosted`/`wsm-os-kernel`. Це ядро
@@ -110,8 +114,8 @@ WSM повністю в Lisp + асемблер цільової машини, �
 власника (Intel Core i5-6400). Суть не в тому, щоб позбутись Rust заради
 самого факту — суть у тому, що WSM визначає WSM, а не Rust визначає WSM:
 достатньо маленьке ядро, щоб вирощувати решту себе зсередини, той самий
-інстинкт, який уже мав власний eval/apply Маккарті. `my-lisp` (Rust) лишається канонічним
-семантичним oracle, доки кожна capability окремо не доведе паритет тут:
+інстинкт, який уже мав власний eval/apply Маккарті. `my-lisp` (Rust) лишається еталонним
+семантичним оракулом, доки кожна capability окремо не доведе паритет тут:
 є WSM-реалізація, незалежні semantic fixtures проходять, Rust↔WSM parity
 проходить, CML admission проходить, реальне виконання на target проходить
 (QEMU/FPGA де застосовно). Цей репозиторій не стає авторитетним над

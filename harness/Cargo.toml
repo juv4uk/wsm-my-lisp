@@ -18,3 +18,8 @@ path = "src/harness_cons.rs"
 [[bin]]
 name = "harness-eq"
 path = "src/harness_eq.rs"
+
+[[bin]]
+name = "harness-countdown"
+path = "src/harness_countdown.rs"
+

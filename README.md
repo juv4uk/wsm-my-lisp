@@ -14,8 +14,10 @@ and implementation for every capability until that capability
 specifically proves parity here: WSM implementation exists, independent
 semantic fixtures pass, Rust↔WSM parity passes, CML admission passes,
 native target execution passes (QEMU/FPGA where in scope). This repo does
-not become authoritative over language semantics by existing — it earns
-authority one proven capability at a time.
+not become authoritative over language semantics. Authority belongs strictly to
+the language contract; each capability here independently earns the status of a
+confirmed, conformant implementation through independent fixtures, parity, CML
+admission, and native target execution.
 
 **Boundary with `my-lisp/c-runtime` (added 2026-09-03, owner's own framing):** these are two different things, not a duplication. `my-lisp/c-runtime` is an **independent C+asm substrate** for checking the language contract itself and for learning — it proves the same `conformance.my` facts on a third, physically different implementation, alongside Rust and `fpga-lisp`. `wsm-my-lisp` (this repo) is the **self-hosting destination** — where WSM increasingly hosts itself, in WSM's own Lisp+asm, growing toward the owner's real hardware, capability by capability. A representation choice proven out in `my-lisp/c-runtime` (e.g. a tagged-`Value` encoding) is exactly the kind of thing that could later inform this repo's own `asm/nucleus.s` — but the two repos answer different questions and neither absorbs the other.
 
@@ -118,9 +120,10 @@ WSM повністю в Lisp + асемблер цільової машини, �
 семантичним оракулом, доки кожна capability окремо не доведе паритет тут:
 є WSM-реалізація, незалежні semantic fixtures проходять, Rust↔WSM parity
 проходить, CML admission проходить, реальне виконання на target проходить
-(QEMU/FPGA де застосовно). Цей репозиторій не стає авторитетним над
-мовною семантикою самим фактом існування — авторитет здобувається по
-одній доведеній capability за раз.
+(QEMU/FPGA де застосовно). Цей репозиторій не стає авторитетом над
+мовною семантикою. Авторитет належить виключно мовному контракту; кожна
+capability окремо здобуває статус підтвердженої, конформантної реалізації
+через незалежні fixtures, parity, CML admission та native target execution.
 
 Повна декларація scope — у `repo.my`.
 

@@ -5,6 +5,13 @@
 ; no stage here requires or anticipates its removal.
 
 ((tasks . (
+  ("BILINGUAL-DOCUMENTATION-AUDIT" .
+    ((priority . 9.0)
+     (capabilities . (documentation translation audit policy))
+     (origin . ecosystem)
+     (context . "Found in the 2026-09-08 ecosystem-wide language-debt audit (ecosystem/memory/LANGUAGE-DEBT-REGISTRY-2026-09-08.md): README.md opens with \"## Status, 2026-09-02\" (English, line 26) before \"## Статус, 2026-09-02 (укр.)\" (line 79) -- the worst pattern found across the whole audit, Ukrainian presented as a parenthetical addendum to the English version rather than an equal, first-class section.")
+     (description . "Enforce the DOCUMENTATION LANGUAGE / МОВА ДОКУМЕНТАЦІЇ policy. Every human-authored markdown file (README, memory, plans, architecture, research) MUST have a substantive Ukrainian translation. Identify English-only documents and translate them. Do not translate machine identifiers or immutable historical records. Ensure every new or edited markdown document is bilingual.")
+     (done . nil)))
   ("WSM-MY-LISP-STAGE0-NUCLEUS-WITNESS" . (
     (priority . 9.5)
     (capabilities . (wsm-my-lisp x86_64 asm nucleus oracle-parity))

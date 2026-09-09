@@ -35,12 +35,11 @@
 - Ручне x86_64 asm-ядро (`asm/nucleus.s` у цьому репо): 5 примітивів (`wsm_cons`/`wsm_car`/`wsm_cdr`/`wsm_eq`/`wsm_atom`), кожен реально виконаний і звірений з oracle — atom/cons/eq/lambda(bounded)/escaping-closure(bounded curried).
 - `external/my-lisp` підключено як git submodule (не copy-paste) — `lib/meta-eval.my` там, точка старту "мій лісп на моєму ліспі".
 
-### Стадія 1 (ВІДКРИТО): named functions на asm-ядрі
+### Стадія 1 (ЗРОБЛЕНО, 2026-09-05): іменована bounded tail-recursion на asm-ядрі
 
-Блокер точно діагностований, не форсований: CML `x86_freestanding.rs` відхиляє `Ir::Def` безумовно — жодна named-функція не компілюється цим backend'ом, а весь `meta-eval.my` побудований через `(def name (lambda ...))`.
+Перші named functions вже не є блокером: `(def countdown (lambda (n) ...))` пройшов CML x86 lowering, зв'язування з `asm/nucleus.s` без Rust runtime primitives і реальний запуск. `harness-countdown` виконав `(countdown 100000)` з результатом `done`, тотожним oracle; assembly має `.Ltcloop_0` та `jmp .Ltcloop_0`, без recursive `call`, тому native stack frame лишається сталим. Джерело historical witness: CML `ae88fd2`, `asm/entry-countdown-100k.s`, wsm-my-lisp `185b803`.
 
-- `CML-X86-DEF-BOUNDED-SELF-TAIL-RECURSIVE-FUNCTION` (cml, зареєстровано, не done): допустити `Ir::Def` лише для однієї bounded self-tail-recursive функції без вільних змінних — форма `env-lookup`. Довести реальним запуском проти `asm/nucleus.s`, звірити з oracle.
-- Наступні, окремі ворота (не робити разом зі Стадією 1): загальна/взаємна рекурсія (`Ir::App`/`Ir::Lambda` за межами bounded single-arg), `Ir::Let`, variadic-форми.
+Наступні, окремі ворота Стадії 2: реальний call graph `meta-eval.my` — `Ir::Let`, general application/lambda, variadic-formи та поетапне виконання evaluator-а. Кожне мусить мати новий executed oracle witness; Stage 1 не означає, що весь `meta-eval.my` уже компілюється.
 
 ### Стадія 2: закриття `meta-eval.my`-графу викликів
 
@@ -89,7 +88,7 @@ Not decorative framing. Every stage below is checked against these rules, and no
 
 Stage 0 (DONE): first nucleus witness — C0/McCarthy-7 oracle parity, one CML→x86_64 fixture actually executed (not just assembled), hand-written asm nucleus for 5 primitives all executed and oracle-checked, `external/my-lisp` submodule in place.
 
-Stage 1 (OPEN): named functions on the asm core — `Ir::Def` is unconditionally rejected by `x86_freestanding.rs`; `CML-X86-DEF-BOUNDED-SELF-TAIL-RECURSIVE-FUNCTION` scopes the smallest real next gate (one bounded self-tail-recursive function, `env-lookup`'s shape).
+Stage 1 (DONE, 2026-09-05): named bounded tail recursion on the asm core — `(def countdown (lambda (n) ...))` passed CML x86 lowering, linked against `asm/nucleus.s` with no Rust runtime primitives, and executed `(countdown 100000)` as `done`, matching the oracle. The assembly has `.Ltcloop_0` plus `jmp .Ltcloop_0`, with no recursive `call`, so its native frame is constant. Historical witness: CML `ae88fd2`, `asm/entry-countdown-100k.s`, wsm-my-lisp `185b803`. This does not claim that the full `meta-eval.my` call graph is compiled; `Ir::Let`, general application/lambda and variadic forms remain separate Stage 2 gates.
 
 Stage 2: close the rest of `meta-eval.my`'s call graph gate by gate, each with an executed, oracle-checked witness.
 

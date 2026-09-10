@@ -1,0 +1,38 @@
+; Cyberpunk embed task recommendations for wsm-my-lisp (2026-09-10).
+; Parallel to tasks.my stages 0–7. Claim only from this repo.
+; Cross-repo map: cml evidence/cyberpunk/CROSS-REPO-TASK-RECOMMENDATIONS-2026-09-10.my
+
+((kind . cyberpunk-recommendations)
+ (version . 1)
+ (tasks .
+  (("CP-IN-GAME-LOAD-WITNESS" .
+    ((priority . 9.8)
+     (done . nil)
+     (capabilities . (red4ext windows dll cyberpunk proof))
+     (description . "Load plugin + wsm DLL inside a real Cyberpunk 2077 process; confirm wsm_session_init via RED4ext Logger. MSVC build alone is not this task.")
+     (acceptance . "Log or capture from live game; unload path calls wsm_session_free; failures named.")))
+   ("CP-HOST-PRIM-ONE" .
+    ((priority . 9.5)
+     (done . nil)
+     (depends-on . ("CP-IN-GAME-LOAD-WITNESS"))
+     (description . "One real or explicitly stubbed game-facing host primitive end-to-end (Lisp -> FFI -> RED4ext or explicit Unsupported).")
+     (acceptance . "Matrix row: source | my-lisp oracle | dll | in-game | status | reason.")))
+   ("CP-FIXTURE-MATRIX" .
+    ((priority . 9.2)
+     (done . nil)
+     (description . "Automate my-lisp cyberpunk-host-dispatch-fixtures against dll; UnknownSymbol text and nested args must not drift.")
+     (acceptance . "CI or documented harness fails closed on mismatch.")))
+   ("CP-TAG-BOXED-CONSUME" .
+    ((priority . 8.8)
+     (done . nil)
+     (description . "After wsm-target-contract ratifies TAG_BOXED, drop TENTATIVE and pin one tag value.")
+     (acceptance . "No dual TAG_STRING/TAG_BOXED story in docs.")))
+   ("CP-ARENA-THREAD-POLICY" .
+    ((priority . 8.0)
+     (done . nil)
+     (description . "Document single-threaded arena as embed contract or implement per-session arena; do not claim thread-safe.")
+     (acceptance . "README/game-injection-plan states the rule; tests enforce or document RUST_TEST_THREADS=1.")))
+   ("CP-NO-EVAL-PUSH-TO-CML" .
+    ((priority . 7.5)
+     (done . nil)
+     (description . "Standing: wsm_eval_string stays in this repo; cml remains offline compiler only."))))))

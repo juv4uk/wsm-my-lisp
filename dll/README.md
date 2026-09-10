@@ -63,12 +63,20 @@ either a locked arena or a per-thread/per-session arena in
   (`CString::into_raw`) and must be freed with `wsm_free_string` --
   exactly once, never with a foreign `free`/`delete`.
 - `wsm_wrap_game_handle(session, handle, &mut out)` stores an opaque
-  host pointer (e.g. a RED4ext RTTI handle) into the session's boxed
-  table and writes the resulting Word to `out`; this crate never
-  dereferences `handle`. `wsm_unwrap_game_handle(session, word, &mut out)`
-  recovers it -- returns 1 (not a crash) if `word` isn't a `GameHandle`
-  Boxed word. The caller is solely responsible for the wrapped pointer's
-  validity for as long as any Lisp value might still reference it.
+  caller-defined token into the session's boxed table and writes the
+  resulting Word to `out`; this crate never dereferences `handle`.
+  `wsm_unwrap_game_handle(session, word, &mut out)` recovers it --
+  returns 1 (not a crash) if `word` isn't a `GameHandle` Boxed word.
+  **`handle` must NOT be a raw refcounted engine pointer** (e.g. a
+  `RED4ext::Handle<T>`'s `T*` taken from a `Handle<T>` that then goes
+  out of scope) -- this crate holds no reference of its own, so that
+  pointer would dangle the instant its real owner releases it. The
+  caller must keep its own table of real, refcount-holding handles and
+  pass an opaque token identifying a row in THAT table instead (see
+  `wsm_wrap_game_handle`'s own doc comment in `ffi.rs` for the full
+  reasoning). The caller remains solely responsible for the token's
+  validity for as long as any Lisp value might still reference it --
+  this crate cannot check or enforce that.
 
 ### Panics across the FFI boundary
 

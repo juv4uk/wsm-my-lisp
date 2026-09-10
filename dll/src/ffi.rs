@@ -210,15 +210,34 @@ pub unsafe extern "C" fn wsm_free_string(s: *mut c_char) {
     drop(unsafe { CString::from_raw(s) });
 }
 
-/// Wraps an opaque host (e.g. RED4ext RTTI) handle into a `Boxed` Word a
-/// Lisp expression can carry and pass back to a later host primitive --
-/// per `wsm-target-contract#2`'s ratification (contract v4,
+/// Wraps an opaque caller-defined token into a `Boxed` Word a Lisp
+/// expression can carry and pass back to a later host primitive -- per
+/// `wsm-target-contract#2`'s ratification (contract v4,
 /// `docs/migration-2026-09-10-game-handle-boxed-kind.md`):
 /// `BoxedValue::GameHandle`, session-local, never dereferenced on this
-/// side. `handle` is stored and returned verbatim by `wsm_unwrap_game_handle`
-/// -- this function does not validate, dereference, or interpret it in
-/// any way; the caller is solely responsible for `handle`'s validity for
-/// as long as the returned Word might still be unwrapped.
+/// side. `handle` is stored and returned verbatim by
+/// `wsm_unwrap_game_handle` -- this function does not validate,
+/// dereference, or interpret it in any way.
+///
+/// **Do NOT pass a raw refcounted engine pointer directly** (e.g. a
+/// `RED4ext::Handle<T>`'s underlying `T*`, extracted from a
+/// stack-local `Handle<T>` that then goes out of scope). This crate
+/// holds no reference of its own, so if the only thing keeping the
+/// referenced object alive was that local `Handle<T>`, the pointer
+/// dangles the moment it does, and a later `wsm_unwrap_game_handle`
+/// hands the caller a use-after-free. The correct pattern: the caller
+/// keeps its own table of real, refcount-holding `Handle<T>` objects
+/// (owning their lifetime for as long as needed) and passes THIS
+/// function an opaque token identifying a row in that table (an index
+/// cast to `*mut c_void`, or any other caller-chosen bit pattern) --
+/// never the engine object's own address. This function's contract was
+/// always "store and return an opaque bit pattern verbatim," which
+/// already supports that pattern with no signature change; this
+/// paragraph exists to make the *safe* usage explicit, not to change
+/// behavior. The caller remains solely responsible for the token's
+/// validity/meaning for as long as the returned Word might still be
+/// unwrapped -- this crate does not (and structurally cannot) enforce
+/// or check that.
 ///
 /// Writes the encoded Word to `*out` and returns 0 on success. Returns
 /// -1 for a null `session` or `out` pointer, -2 if a panic was caught
@@ -228,8 +247,9 @@ pub unsafe extern "C" fn wsm_free_string(s: *mut c_char) {
 /// `session` must be a live pointer from `wsm_session_init`. `out` must
 /// be a valid, writable `u64` for the duration of this call. `handle` is
 /// opaque to this function and imposes no safety requirement of its own
-/// here (it is never dereferenced) -- but see the caller-responsibility
-/// note above for what `wsm_unwrap_game_handle` will later require.
+/// here (it is never dereferenced) -- but see the ownership note above
+/// for what a caller must arrange for `wsm_unwrap_game_handle` to later
+/// return something safe to use.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wsm_wrap_game_handle(
     session: *mut Session,

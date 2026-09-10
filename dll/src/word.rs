@@ -146,7 +146,15 @@ impl SymbolTable {
 /// actually references, how it's obtained, and its validity lifetime are
 /// entirely the adapter's (`my-lisp-cyberpunk`) concern, not this
 /// crate's -- there is deliberately no `unsafe` dereference of it
-/// anywhere in `dll/`.
+/// anywhere in `dll/`. In particular, the adapter must NOT pass a raw
+/// refcounted engine pointer (e.g. `RED4ext::Handle<T>`'s `T*`,
+/// extracted from a `Handle<T>` that then goes out of scope) -- this
+/// crate holds no reference of its own, so the pointer would dangle the
+/// moment its only real owner releases it. The adapter must keep its own
+/// table of real, refcount-holding handles and pass `ffi.rs`'s
+/// `wsm_wrap_game_handle` an opaque token identifying a row in THAT
+/// table instead -- see that function's own doc comment for the full
+/// reasoning (found in review, not designed in up front).
 pub enum BoxedValue {
     Str(String),
     GameHandle(*mut core::ffi::c_void),

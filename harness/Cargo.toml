@@ -3,6 +3,11 @@ name = "wsm-my-lisp-harness"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+# Представлення цільового слова беремо з ратифікованого target contract,
+# а не дублюємо теги/канонічне t у witness-коді.
+wsm-os-target = { git = "https://github.com/juv4uk/wsm-target-contract.git", rev = "bb6e119", package = "wsm-os-target" }
+
 [[bin]]
 name = "harness-atom"
 path = "src/harness_atom.rs"

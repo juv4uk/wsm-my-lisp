@@ -18,8 +18,30 @@
 //! function -- it trusts its raw-pointer arguments are valid for the
 //! duration of the call (as any C ABI does) but does not otherwise assume
 //! anything about the caller beyond that contract.
+//!
+//! Unwind safety, and its CONFIRMED LIMIT (tested, not assumed): every
+//! function here wraps its body in `std::panic::catch_unwind` so a panic
+//! inside this crate's own Rust logic (e.g. eval.rs's `.expect()` calls,
+//! `String`/`CStr` conversions) turns into an ordinary error return
+//! instead of unwinding further. This does NOT protect against a panic
+//! *inside a host-registered `HostPrimitiveFn` callback itself*: that
+//! callback is declared `extern "C"` (plain "C" ABI, not "C-unwind"), and
+//! modern rustc inserts an abort right at THAT boundary the moment a
+//! panic tries to cross it -- before it ever reaches this file's
+//! `catch_unwind`, which sits one call further up the stack. Confirmed by
+//! deliberately triggering this during development: the test process hit
+//! `STATUS_STACK_BUFFER_OVERRUN` / "thread caused non-unwinding panic.
+//! aborting." immediately, never reaching wsm_eval_string's catch_unwind
+//! at all. A real host-side callback (C++ in the actual RED4ext/CET case)
+//! can't "panic" in the Rust sense, so this specific failure mode may not
+//! be reachable in practice -- but if `HostPrimitiveFn` is ever
+//! implemented on the Rust side too (e.g. in tests, or a future in-process
+//! stub), a panic there aborts the whole process, full stop; this crate
+//! does not currently attempt to change that (would need the callback
+//! type to be `extern "C-unwind"`, a bigger design change, not done here).
 
 use std::ffi::{c_char, CStr, CString};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::eval::{self, Env, EvalError};
 use crate::printer::value_to_string;
@@ -68,28 +90,27 @@ pub unsafe extern "C" fn wsm_register_primitive(
     if session.is_null() || name.is_null() {
         return -1;
     }
-    let session = unsafe { &mut *session };
-    let name = match unsafe { CStr::from_ptr(name) }.to_str() {
-        Ok(s) => s.to_string(),
-        Err(_) => return -1, // not valid UTF-8
-    };
-    session.env.register_primitive(
-        &name,
-        Box::new(move |args: &[u64]| {
-            let mut out: u64 = 0;
-            let rc = unsafe { f(args.len(), args.as_ptr(), &mut out as *mut u64) };
-            if rc != 0 {
-                // No error channel back through HostPrimitive's Fn(&[u64]) -> u64
-                // signature yet -- returning Nil on host-reported failure is a
-                // placeholder, not a considered design; flagging rather than
-                // silently treating host errors as success.
-                crate::word::WORD_NIL
-            } else {
-                out
-            }
-        }),
-    );
-    0
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let session = unsafe { &mut *session };
+        let name = match unsafe { CStr::from_ptr(name) }.to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return -1, // not valid UTF-8
+        };
+        session.env.register_primitive(
+            &name,
+            Box::new(move |args: &[u64]| {
+                let mut out: u64 = 0;
+                let rc = unsafe { f(args.len(), args.as_ptr(), &mut out as *mut u64) };
+                if rc != 0 {
+                    Err(format!("host primitive reported error code {rc}"))
+                } else {
+                    Ok(out)
+                }
+            }),
+        );
+        0
+    }));
+    result.unwrap_or(-2) // -2: registration panicked, distinct from -1 (bad args)
 }
 
 /// # Safety
@@ -100,13 +121,16 @@ pub unsafe extern "C" fn wsm_bind(session: *mut Session, name: *const c_char, va
     if session.is_null() || name.is_null() {
         return -1;
     }
-    let session = unsafe { &mut *session };
-    let name = match unsafe { CStr::from_ptr(name) }.to_str() {
-        Ok(s) => s,
-        Err(_) => return -1,
-    };
-    session.env.bind(name, value);
-    0
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let session = unsafe { &mut *session };
+        let name = match unsafe { CStr::from_ptr(name) }.to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        };
+        session.env.bind(name, value);
+        0
+    }));
+    result.unwrap_or(-2)
 }
 
 /// Evaluates one form read from `source`. Returns an owned, NUL-terminated
@@ -125,11 +149,14 @@ pub unsafe extern "C" fn wsm_eval_string(session: *mut Session, source: *const c
     let message = if session.is_null() || source.is_null() {
         "error: null session or source pointer".to_string()
     } else {
-        let session = unsafe { &mut *session };
-        match unsafe { CStr::from_ptr(source) }.to_str() {
-            Err(_) => "error: source is not valid UTF-8".to_string(),
-            Ok(text) => eval_str(session, text),
-        }
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            let session = unsafe { &mut *session };
+            match unsafe { CStr::from_ptr(source) }.to_str() {
+                Err(_) => "error: source is not valid UTF-8".to_string(),
+                Ok(text) => eval_str(session, text),
+            }
+        }));
+        result.unwrap_or_else(|_| "error: internal panic during eval".to_string())
     };
     CString::new(message)
         .unwrap_or_else(|_| CString::new("error: result contained an embedded NUL").unwrap())
@@ -148,6 +175,9 @@ fn eval_str(session: &mut Session, text: &str) -> String {
         Err(EvalError::UnknownSymbol(name)) => format!("error: unknown symbol: {name}"),
         Err(EvalError::NotCallable) => "error: not callable".to_string(),
         Err(EvalError::CondFallthrough) => "error: cond: no clause matched".to_string(),
+        Err(EvalError::HostPrimitiveFailed { name, message }) => {
+            format!("error: {name} failed: {message}")
+        }
     }
 }
 
@@ -174,6 +204,10 @@ mod tests {
         0
     }
 
+    unsafe extern "C" fn stub_give_weapon(_argc: usize, _argv: *const u64, _out: *mut u64) -> i32 {
+        1 // nonzero: host-reported failure
+    }
+
     #[test]
     fn end_to_end_register_bind_eval_print_free() {
         unsafe {
@@ -197,6 +231,23 @@ mod tests {
             let err = CStr::from_ptr(err_ptr).to_str().unwrap().to_string();
             assert_eq!(err, "error: unknown symbol: undefined-symbol");
             wsm_free_string(err_ptr);
+
+            wsm_session_free(session);
+        }
+    }
+
+    #[test]
+    fn host_primitive_error_code_surfaces_through_eval_string() {
+        unsafe {
+            let session = wsm_session_init();
+            let prim_name = CString::new("give-weapon").unwrap();
+            assert_eq!(wsm_register_primitive(session, prim_name.as_ptr(), stub_give_weapon), 0);
+
+            let source = CString::new("(give-weapon)").unwrap();
+            let result_ptr = wsm_eval_string(session, source.as_ptr());
+            let result = CStr::from_ptr(result_ptr).to_str().unwrap().to_string();
+            assert_eq!(result, "error: give-weapon failed: host primitive reported error code 1");
+            wsm_free_string(result_ptr);
 
             wsm_session_free(session);
         }

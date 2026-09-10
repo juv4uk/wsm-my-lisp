@@ -56,9 +56,19 @@ pub enum EvalError {
     /// an explicit error for now rather than silently returning Nil, so
     /// it's visible instead of masquerading as a valid Nil result.
     CondFallthrough,
+    /// A registered host primitive reported failure. Carries the
+    /// primitive's name and a host-supplied message, so a host-reported
+    /// error surfaces as a real error instead of silently becoming Nil
+    /// (that used to be this crate's behavior -- see ffi.rs's git history
+    /// for why it changed).
+    HostPrimitiveFailed { name: String, message: String },
 }
 
-pub type HostPrimitive = Box<dyn Fn(&[u64]) -> u64>;
+/// Returns `Err(message)` on host-side failure -- see `EvalError::
+/// HostPrimitiveFailed`. This is the internal Rust-level contract;
+/// ffi.rs's `HostPrimitiveFn` (the C ABI a registered primitive is
+/// actually called through) adapts its int return code into this.
+pub type HostPrimitive = Box<dyn Fn(&[u64]) -> Result<u64, String>>;
 
 #[derive(Default)]
 pub struct Env {
@@ -120,7 +130,10 @@ fn eval_list(word: u64, env: &Env, symbols: &SymbolTable) -> Result<u64, EvalErr
 
     let args = eval_args(rest, env, symbols)?;
     match env.primitives.get(name) {
-        Some(f) => Ok(f(&args)),
+        Some(f) => f(&args).map_err(|message| EvalError::HostPrimitiveFailed {
+            name: name.to_string(),
+            message,
+        }),
         None => Err(EvalError::UnknownSymbol(name.to_string())),
     }
 }
@@ -190,7 +203,7 @@ mod tests {
             "teleport",
             Box::new(move |args: &[u64]| {
                 calls_clone.borrow_mut().push(args.to_vec());
-                WORD_NIL
+                Ok(WORD_NIL)
             }),
         );
         let word = read_one("(teleport player 100 200 50)", &mut symbols).unwrap();
@@ -200,6 +213,24 @@ mod tests {
         assert_eq!(decode_fixnum(recorded[0][1]), 100);
         assert_eq!(decode_fixnum(recorded[0][2]), 200);
         assert_eq!(decode_fixnum(recorded[0][3]), 50);
+    }
+
+    #[test]
+    fn host_primitive_failure_surfaces_as_eval_error() {
+        let mut symbols = SymbolTable::new();
+        let mut env = Env::new();
+        env.register_primitive(
+            "give-weapon",
+            Box::new(|_args: &[u64]| Err("unknown weapon id".to_string())),
+        );
+        let word = read_one("(give-weapon)", &mut symbols).unwrap();
+        assert_eq!(
+            eval(word, &env, &symbols),
+            Err(EvalError::HostPrimitiveFailed {
+                name: "give-weapon".to_string(),
+                message: "unknown weapon id".to_string(),
+            })
+        );
     }
 
     #[test]

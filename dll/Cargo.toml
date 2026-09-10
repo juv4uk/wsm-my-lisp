@@ -3,6 +3,14 @@ name = "wsm-my-lisp-cyberpunk-dll"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+# Pinned to the commit that ratifies Tag::Boxed=7 (contract v3) --
+# docs/migration-2026-09-10-boxed-tag.md in wsm-target-contract. Consumes
+# the canonical Tag enum and encode_boxed/decode_boxed instead of this
+# crate's own local TAG_BOXED constant, per that migration note's own
+# instruction to wsm-my-lisp.
+wsm-os-target = { git = "https://github.com/juv4uk/wsm-target-contract.git", rev = "bb6e119", package = "wsm-os-target" }
+
 [lib]
 # rlib in addition to cdylib so `cargo test` can link the primitive
 # smoke tests below; the shipped artifact is still the cdylib.

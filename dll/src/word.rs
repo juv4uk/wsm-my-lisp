@@ -3,54 +3,56 @@
 //! TAG_BITS=3, PAYLOAD_BITS=61): Cons=0, Nil=1, True=2 (unused, see
 //! nucleus.s), Fixnum=3, Symbol=4, Closure=5, Capability=6.
 //!
-//! Boxed values (currently just String): TENTATIVE, NOT an official part
-//! of wsm-target-contract yet. my-lisp confirmed (2026-09-10, reading
+//! Boxed values (currently just String): RATIFIED 2026-09-10 as
+//! `Tag::Boxed = 7` in `wsm-target-contract` (contract v3, commit
+//! `bb6e119`, `docs/migration-2026-09-10-boxed-tag.md`) -- no longer
+//! this crate's own tentative proposal. `TAG_BOXED` below is now a
+//! straight re-export of `wsm_os_target::Tag::Boxed`, not a local
+//! constant duplicating the number by hand (per that migration note's
+//! own instruction to this crate, and wsm-my-lisp#1's acceptance
+//! criterion against uncoordinated local copies of ABI constants).
+//!
+//! History, for context: this was originally proposed narrowly as
+//! `TAG_STRING`. my-lisp confirmed (2026-09-10, reading
 //! crates/my-lisp/src/value.rs directly) strings are a distinct
 //! `Value::String(Rc<str>)` variant, structurally identical to
 //! `Value::Symbol(Rc<str>)` but semantically NOT interned (two equal
 //! string literals are independent allocations -- my-lisp compares
 //! strings structurally via `equal?`, not by identity via `eq?`, unlike
-//! symbols).
-//!
-//! `TAG_BOXED = 7` (this crate's proposal, the only unused value
-//! TAG_BITS=3 leaves: Cons=0/Nil=1/True=2/Fixnum=3/Symbol=4/Closure=5/
-//! Capability=6) was originally going to be `TAG_STRING`, narrowly. cml
-//! reviewed that (2026-09-10, checking both their c_backend.rs and
-//! x86_freestanding.rs directly -- neither has any existing string-layout
-//! of their own to conflict with) and recommended generalizing it instead:
-//! rather than spend the ABI's last free 3-bit tag value on String
-//! specifically, use it as a generic "boxed/ref" tag, with the boxed
-//! object's own kind (String today, Vector/NumericBuffer later if ever
-//! needed -- cml's own review of my-lisp's Value enum found those are the
-//! only other variants shaped like this: variable-size blobs needing
-//! offset+length in a side table, not an inline payload; Rational/Bool/
-//! Macro don't need a primary tag at all by cml's analysis) carried as a
-//! discriminant inside the table entry itself, not encoded into the tag
-//! bits. This keeps TAG_BITS=3 viable for longer without a bigger,
-//! harder-to-reverse ABI change (widening TAG_BITS itself, which every
-//! consumer -- x86_freestanding.rs, asm/nucleus.s, any future FPGA-style
-//! word format -- would have to move on together). Still asked cml/
-//! wsm-target-contract to confirm the actual number, not decided
-//! unilaterally -- do not treat TAG_BOXED=7 as canonical until that's
-//! confirmed.
+//! symbols). cml then reviewed the `TAG_STRING` proposal (checking both
+//! their c_backend.rs and x86_freestanding.rs directly -- neither had an
+//! existing string-layout of their own to conflict with) and recommended
+//! generalizing it instead: rather than spend the ABI's last free 3-bit
+//! tag value on String specifically, use it as a generic "boxed/ref" tag,
+//! with the boxed object's own kind (String today, Vector/NumericBuffer
+//! later if ever needed) carried as a discriminant inside the table entry
+//! itself, not encoded into the tag bits. `wsm-target-contract` ratified
+//! exactly that shape, and additionally fixed the scope as **session-local**
+//! (a `Boxed` handle indexes a runtime-owned table created fresh per host
+//! session -- it does not survive across sessions/processes, unlike
+//! `Symbol`/`Closure` which are image-local) -- matching this crate's own
+//! `BoxedTable` design already (it lives in `ffi.rs`'s per-session
+//! `Session`, not anywhere image-local).
 
-pub const TAG_BITS: u64 = 3;
-pub const TAG_MASK: u64 = 7;
-pub const TAG_CONS: u64 = 0;
-pub const TAG_NIL: u64 = 1;
-pub const TAG_FIXNUM: u64 = 3;
-pub const TAG_SYMBOL: u64 = 4;
-/// TENTATIVE -- see module doc above. Not yet reserved in
-/// wsm-target-contract; do not treat as a stable cross-repo ABI value.
-pub const TAG_BOXED: u64 = 7;
+pub const TAG_BITS: u64 = wsm_os_target::TAG_BITS as u64;
+pub const TAG_MASK: u64 = wsm_os_target::TAG_MASK;
+pub const TAG_CONS: u64 = wsm_os_target::Tag::Cons as u64;
+pub const TAG_NIL: u64 = wsm_os_target::Tag::Nil as u64;
+pub const TAG_FIXNUM: u64 = wsm_os_target::Tag::Fixnum as u64;
+pub const TAG_SYMBOL: u64 = wsm_os_target::Tag::Symbol as u64;
+/// Ratified -- see module doc above. `wsm_os_target::Tag::Boxed as u64`,
+/// not a hand-copied number.
+pub const TAG_BOXED: u64 = wsm_os_target::Tag::Boxed as u64;
 
 pub const WORD_NIL: u64 = TAG_NIL;
 
-/// wsm_os_target::SYMBOL_ID_MAX, reserved in nucleus.s/nucleus-win64.s as
-/// the sentinel id for canonical `t` -- see nucleus.s's own header comment
-/// for why this is a sentinel, not a proven-unique id.
-pub const SYM_T_ID: u64 = 0x1FFF_FFFF_FFFF_FFFF;
-pub const SYM_T_WORD: u64 = (SYM_T_ID << 3) | TAG_SYMBOL;
+/// `wsm_os_target::SYMBOL_ID_MAX`, reserved in nucleus.s/nucleus-win64.s
+/// as the sentinel id for canonical `t` -- see nucleus.s's own header
+/// comment for why this is a sentinel, not a proven-unique id.
+pub const SYM_T_ID: u64 = wsm_os_target::SYMBOL_ID_MAX;
+/// `wsm_os_target::CANONICAL_T` -- same value, now imported rather than
+/// hand-recomputed from `SYM_T_ID`/`TAG_SYMBOL`.
+pub const SYM_T_WORD: u64 = wsm_os_target::CANONICAL_T;
 
 pub fn tag_of(word: u64) -> u64 {
     word & TAG_MASK
@@ -129,11 +131,20 @@ pub enum BoxedValue {
     Str(String),
 }
 
-/// Per-evaluator boxed-value table (TENTATIVE, see this module's header):
-/// append-only, index-in-word (same pattern as `SymbolTable`), but
-/// deliberately NOT deduplicating strings -- my-lisp confirmed two equal
-/// string literals in one program are independent allocations, unlike
-/// symbols.
+/// Per-evaluator boxed-value table, ratified shape (see this module's
+/// header): append-only, session-local, handle-in-word via
+/// `wsm_os_target::encode_boxed`/`decode_boxed` (same pattern as
+/// `SymbolTable`'s own id-in-word, but through the canonical helpers now
+/// rather than a hand-rolled shift), deliberately NOT deduplicating
+/// strings -- my-lisp confirmed two equal string literals in one program
+/// are independent allocations, unlike symbols.
+///
+/// `encode_boxed` rejects a zero handle (reserved, per
+/// `wsm_os_target::BOXED_HANDLE_MAX`'s own doc), so entries are handled
+/// 1-based (`handle = index + 1`) rather than `SymbolTable`'s 0-based-id
+/// convention -- the two tables intentionally don't share a numbering
+/// scheme, only the general "small int in the word, real data in a side
+/// table" shape.
 #[derive(Default)]
 pub struct BoxedTable {
     values: Vec<BoxedValue>,
@@ -147,16 +158,14 @@ impl BoxedTable {
     /// Always allocates a new entry, even for a value equal to one
     /// already present -- no lookup/dedup, unlike `SymbolTable::intern`.
     pub fn add_string(&mut self, value: String) -> u64 {
-        let index = self.values.len() as u64;
+        let handle = self.values.len() as u64 + 1;
         self.values.push(BoxedValue::Str(value));
-        (index << TAG_BITS) | TAG_BOXED
+        wsm_os_target::encode_boxed(handle).expect("handle is non-zero and within BOXED_HANDLE_MAX by construction")
     }
 
     pub fn get_string(&self, word: u64) -> Option<&str> {
-        if tag_of(word) != TAG_BOXED {
-            return None;
-        }
-        let index = (word >> TAG_BITS) as usize;
+        let handle = wsm_os_target::decode_boxed(word)?;
+        let index = (handle - 1) as usize;
         match self.values.get(index) {
             Some(BoxedValue::Str(s)) => Some(s.as_str()),
             None => None,

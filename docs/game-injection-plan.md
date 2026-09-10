@@ -1,22 +1,40 @@
-# Game injection plan (research, not implementation)
+# Game injection plan
 
-Status: **ground-preparation only**, per owner directive relayed 2026-09-10
-via the my-lisp-cyberpunk coordination session. This document researches
-and records how `dll/` (the win64 nucleus + reader/evaluator/FFI crate,
-see [f91ee1c](https://github.com/juv4uk/wsm-my-lisp/commit/f91ee1c) and
-[955ee4e](https://github.com/juv4uk/wsm-my-lisp/commit/955ee4e)) would get
-loaded into a running Cyberpunk 2077 process. **No injection code exists
-yet and none is written here** -- per this repo's own "first step on a
-new topic belongs to the owner, not the agent" discipline, actually
-writing and loading a game-process plugin needs its own explicit
-go-ahead, separate from this research.
+Status update (2026-09-10, later same day): the plan below was originally
+written as research-only, blocked on an explicit owner go-ahead. That
+go-ahead was given (confirmed directly with the user, not just relayed) and
+**the plugin skeleton described in §(b) now actually exists**: `plugin/`
+(a C++ project, RED4ext.SDK vendored as a git submodule at
+`plugin/deps/red4ext.sdk`) builds cleanly via CMake+MSVC and exports
+exactly the 3 functions RED4ext's loader requires (`Main`/`Query`/
+`Supports`, confirmed via `dumpbin -exports`, not assumed). It has NOT
+been loaded into a real running game process yet -- no Cyberpunk 2077
+installation was available to test against in this environment, so
+"builds and exports the right symbols" is as far as this has been
+verified. The original research below is kept for context, with corrections
+flagged inline where the actual vendored SDK differed from what was
+originally found on the web.
 
-This is also still blocked on the same 3 open semantics questions as the
-rest of the cyberpunk effort (cond special-form-vs-macro, bare-symbol
-bindings, string encoding) -- a real mod script can't be meaningfully
-evaluated without them. Nothing here depends on those, though: this is
-purely "how does a DLL get into the process and prove it's there," not
-"what does the DLL do once loaded."
+**Important correction, found only by actually vendoring and building
+against the real SDK, not by re-reading docs.red4ext.com harder**: the
+`RED4ext::PluginHandle`/`RED4EXT_SEMVER`/`RED4EXT_RUNTIME_INDEPENDENT`-style
+names below (§a, from docs.red4ext.com and an older example repo) do NOT
+match the SDK version this project vendored (commit `ad72777`, cloned
+2026-09-10). That version namespaces everything under `RED4ext::v1::` and
+uses `RED4EXT_V1_`-prefixed macros instead (`RED4ext::v1::PluginHandle`,
+`RED4EXT_V1_SEMVER`, `RED4EXT_V1_RUNTIME_VERSION_INDEPENDENT`, etc.) --
+confirmed against the SDK's own vendored headers and its own
+`examples/execute_functions/Main.cpp`, not against the web docs, which
+are stale relative to this SDK version. `plugin/src/Main.cpp` uses the
+correct current names; treat this document's §(a) code sample below as
+historical illustration, not literal current API.
+
+This is also still blocked on `dll/`'s wider RTTI/host-primitive-registration
+integration for anything beyond "prove the DLL loads" -- a real mod script
+still can't be meaningfully evaluated inside the game yet. Nothing in
+§(a)/(b) below depended on that, though: this was always purely "how does
+a DLL get into the process and prove it's there," not "what does the DLL
+do once loaded."
 
 ## (a) The standard, sanctioned path: RED4ext, not raw injection
 
@@ -67,40 +85,58 @@ modding ecosystem expects a plugin to do.
 - Plugins must be 64-bit, matching this repo's `dll/` crate already
   targeting `x86_64-pc-windows-msvc`.
 
-## (b) Minimal RED4ext plugin skeleton (design only, not written)
+## (b) Minimal RED4ext plugin skeleton -- IMPLEMENTED, see `plugin/`
 
-The smallest thing that would prove the DLL loads in-process at all:
+What's actually in the repo now (`plugin/`, first commit after this doc's
+status update above), superseding the design sketch this section
+originally contained:
 
-1. A separate small **C++** project (RED4ext plugins are C++ against
-   RED4ext.SDK's C++ headers, not something `dll/`'s Rust crate can
-   directly satisfy -- `dll/` would be loaded *by* this C++ shim, not
-   *as* the RED4ext plugin itself. Two DLLs: a thin RED4ext-plugin.dll in
-   C++, plus this repo's existing `wsm_my_lisp_cyberpunk_dll.dll`).
-2. The C++ shim's `Main(..., EMainReason::Load, ...)`:
-   - `LoadLibraryW` the Rust `wsm_my_lisp_cyberpunk_dll.dll` (placed
-     alongside it in `red4ext/plugins/`).
-   - `GetProcAddress` for `wsm_session_init` (already exported per
-     `dll/src/ffi.rs`) and call it.
-   - Log success/failure through RED4ext's own logging facility (exact
-     API not yet looked up here) -- no real game-facing behavior yet,
-     just proof the Rust DLL loaded and its FFI surface is callable
-     in-process.
-3. `Main(..., EMainReason::Unload, ...)`: call `wsm_session_free` on the
-   handle, then `FreeLibrary`.
-4. Build via RED4ext's own documented CMake/Premake example projects
-   (`WopsS/RED4ext.Example.CMake`, `WopsS/RED4ext.Example.Premake` --
-   third-party community examples referenced by RED4ext's own docs, not
-   authored here).
+1. `plugin/` is a separate C++20 CMake project (RED4ext plugins are C++
+   against RED4ext.SDK's C++ headers, not something `dll/`'s Rust crate
+   can directly satisfy). RED4ext.SDK is vendored as a git submodule at
+   `plugin/deps/red4ext.sdk` (same pattern as `external/my-lisp`).
+2. `plugin/src/Main.cpp`'s `Main(..., EMainReason::Load, ...)`:
+   - Resolves its own directory via `GetModuleHandleExW`/
+     `GetModuleFileNameW` (not the working directory, which RED4ext does
+     not guarantee), then `LoadLibraryW`s `wsm_my_lisp_cyberpunk_dll.dll`
+     from that same directory.
+   - `GetProcAddress`es `wsm_session_init` and calls it.
+   - Logs success/failure via the real `RED4ext::v1::Logger` API
+     (`aSdk->logger->InfoF`/`ErrorF`) -- the exact API §(a) above flagged
+     as "not yet looked up" is now used for real, confirmed against the
+     vendored SDK's `include/RED4ext/Api/v1/Logger.hpp` and `Sdk.hpp`.
+   - No real game-facing behavior yet -- this only proves the Rust DLL
+     loaded and `wsm_session_init` is callable in-process.
+3. `Main(..., EMainReason::Unload, ...)`: calls `wsm_session_free` on the
+   session handle (if init succeeded), then `FreeLibrary`s the module.
+4. `Query`/`Supports` export the plugin's identity and declare
+   `RED4EXT_V1_RUNTIME_VERSION_INDEPENDENT` (this skeleton doesn't touch
+   game RTTI/state, so it isn't pinned to one game version) and
+   `RED4EXT_API_VERSION_1`.
 
-Not yet resolved by this research, needs an actual attempt to answer:
+**Verified, not assumed**: `cmake -G "Visual Studio 17 2022" -A x64` then
+`cmake --build . --config Release` succeeds end to end (RED4ext.SDK's ~40
+source files compile, then `Main.cpp`), producing
+`wsm-my-lisp-cyberpunk-plugin.dll`. `dumpbin -exports` on that DLL shows
+exactly `Main`, `Query`, `Supports` -- the 3 symbols RED4ext's loader
+requires, correctly exported, not mangled.
 
-- Whether calling a Rust `cdylib`'s exports from a `LoadLibraryW`'d
-  context inside the game process needs anything beyond what `dll/src/
-  ffi.rs` already provides (thread-local state, panic unwinding across
-  the FFI boundary -- Rust panics unwinding into C++ is UB and must be
-  caught with `catch_unwind` at every exported function; `ffi.rs`
-  doesn't do this yet).
-- Exact RED4ext logging API call (left as a placeholder above).
+**NOT yet verified** (no Cyberpunk 2077 installation available in this
+environment): actually placing this DLL + `wsm_my_lisp_cyberpunk_dll.dll`
+in a real `<game_directory>/red4ext/plugins/` and confirming RED4ext's
+real loader accepts and loads it, that `wsm_session_init` really returns
+a valid session pointer inside the actual game process (not just a test
+harness), and the exact log output location (RED4ext's own log file,
+path unconfirmed). Also still open, carried over unchanged from before
+this update:
+
+- Whether calling the Rust `cdylib`'s exports from inside the real game
+  process needs anything beyond what `dll/src/ffi.rs` already provides.
+  `ffi.rs` does have `catch_unwind` on its exported functions now (see
+  commit `affc570`) -- but see that commit's own confirmed limit: a panic
+  *inside* a host-registered callback still aborts the process outright,
+  `catch_unwind` doesn't reach that case. Not exercised against a real
+  RED4ext-hosted callback yet, only Rust-side unit tests.
 
 ## CET (CyberEngineTweaks) coexistence
 

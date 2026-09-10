@@ -4,21 +4,38 @@
 //! form. Deliberately no lambda/closures/def -- see asm/nucleus-win64.s's
 //! header for why that stays out of scope for this pass.
 //!
-//! OPEN QUESTION for my-lisp, not resolved here: is `cond` in real my-lisp
-//! a true evaluator special form (never evaluates its clause list as an
-//! ordinary call), or a macro expanding to something more primitive? This
-//! file assumes the former -- it treats `cond` as a special form the
-//! evaluator recognizes by symbol name before doing normal call dispatch,
-//! which is the simplest model consistent with the conformance facts
-//! received so far (t always true, Fixnum 0 truthy, `()` falsy). If real
-//! my-lisp models it differently, this needs revisiting, not just
-//! extending.
+//! Both design questions below were open when this file was first written
+//! and have since been confirmed directly by my-lisp (2026-09-10, against
+//! their own code, not from memory):
 //!
-//! Also open: bare symbol arguments like `player` in `(teleport player
-//! 100 200 50)` have no `def`/`let` to bind them. This module resolves
-//! them via `Env::bindings`, a host-registered name->value table separate
-//! from callable primitives -- an MVP convention invented here, not
-//! confirmed against my-lisp's semantics yet.
+//! - **`cond` is a true evaluator special form**, not a macro -- my-lisp's
+//!   own `language-contract.my` `special-forms-boundary` states `quote
+//!   cond lambda def defmacro` "are NOT callable values. They are
+//!   syntactic evaluation rules," part of immutable Canon (0+7). This
+//!   file's model (recognize `cond` by name before normal call dispatch,
+//!   never evaluate it as an ordinary call) matches that.
+//! - **Bare symbol arguments require a prior binding, same as real
+//!   my-lisp's own `def`** -- my-lisp confirmed there is no
+//!   "self-evaluating identifier" concept: a bare symbol always attempts
+//!   lookup and raises `UnknownSymbol` if unbound, exactly like
+//!   `(undefined-symbol)` already does here. `Env::bindings` is this
+//!   module's stand-in for the host side doing the equivalent of
+//!   `(def player <handle>)` before evaluating a command that references
+//!   `player` -- a real implementation of `def`'s effect, not a deviation
+//!   from it. (If some future primitive instead wanted `player` passed as
+//!   a literal name-token with no lookup at all, that WOULD be a real
+//!   deviation from my-lisp semantics and would need to be flagged as
+//!   such explicitly -- not the case here.)
+//!
+//! Still genuinely open, NOT resolved by this file: **string literal
+//! encoding**. my-lisp confirmed strings are a distinct, immutable UTF-8
+//! type (`Rc<str>` on their side), never the same type as Symbol --
+//! word.rs's wsm-os-target::Tag has no String variant, so representing
+//! one needs a new tag (payload = pointer+length into the arena, or
+//! similar) that doesn't exist yet. The exact tag value/layout is a
+//! cross-repo ABI decision (affects cml/wsm-os-target too), not something
+//! to invent unilaterally here -- reader.rs still does not parse quoted
+//! strings pending that decision.
 
 use std::collections::HashMap;
 

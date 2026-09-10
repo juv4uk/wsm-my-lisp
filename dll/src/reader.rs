@@ -3,11 +3,15 @@
 //! MVP slice (per the owner/my-lisp-cyberpunk go-ahead 2026-09-10):
 //! symbols, fixnums (including negative), and parenthesized lists only.
 //!
-//! Explicitly NOT supported yet, pending my-lisp confirmation:
+//! Explicitly NOT supported yet:
 //!   - quote syntax (`'x`) -- not needed for one-shot commands
 //!   - dotted-pair literals in input
-//!   - string literals -- word.rs has no String tag to encode them into;
-//!     raising this with my-lisp rather than inventing an encoding here.
+//!   - string literals -- my-lisp confirmed (2026-09-10) strings are a
+//!     distinct, immutable UTF-8 type, never the same as Symbol, but
+//!     word.rs's wsm-os-target::Tag still has no String variant to encode
+//!     one into. Still genuinely open (cross-repo ABI decision, not
+//!     something to invent here) -- see eval.rs's module doc for the full
+//!     status.
 
 use crate::word::{encode_fixnum, SymbolTable, WORD_NIL};
 use crate::wsm_cons;

@@ -10,7 +10,7 @@
 //! `(a . b)` since the underlying representation can express them even
 //! though reader.rs doesn't parse that syntax on input yet.
 
-use crate::word::{tag_of, BoxedTable, SymbolTable, TAG_CONS, TAG_FIXNUM, TAG_NIL, TAG_BOXED, TAG_SYMBOL};
+use crate::word::{tag_of, BoxedKind, BoxedTable, SymbolTable, TAG_BOXED, TAG_CONS, TAG_FIXNUM, TAG_NIL, TAG_SYMBOL};
 use crate::{wsm_car, wsm_cdr};
 use std::fmt::Write as _;
 
@@ -33,17 +33,22 @@ fn write_value(word: u64, symbols: &SymbolTable, strings: &BoxedTable, out: &mut
                 let _ = write!(out, "#<unknown-symbol:{:#x}>", word);
             }
         },
-        // Quoting is intentionally naive (wrap in `"`, no internal-quote
-        // escaping on output) -- matches reader.rs's own minimal escaping,
-        // not a general string-literal printer.
-        TAG_BOXED => match strings.get_string(word) {
-            Some(s) => {
+        TAG_BOXED => match strings.kind_of(word) {
+            // Quoting is intentionally naive (wrap in `"`, no internal-quote
+            // escaping on output) -- matches reader.rs's own minimal
+            // escaping, not a general string-literal printer.
+            Some(BoxedKind::Str) => {
                 out.push('"');
-                out.push_str(s);
+                out.push_str(strings.get_string(word).expect("kind_of said Str"));
                 out.push('"');
             }
+            // Deliberately does NOT print the underlying pointer -- doing
+            // so would leak a host address into Lisp-visible text, the
+            // exact thing GameHandle's opaqueness is meant to prevent
+            // (see word.rs's BoxedValue::GameHandle doc).
+            Some(BoxedKind::GameHandle) => out.push_str("#<game-handle>"),
             None => {
-                let _ = write!(out, "#<unknown-string:{:#x}>", word);
+                let _ = write!(out, "#<unknown-boxed:{:#x}>", word);
             }
         },
         TAG_CONS => write_list(word, symbols, strings, out),
@@ -146,5 +151,15 @@ mod tests {
         let mut strings = BoxedTable::new();
         let word = read_one(r#"(дай-зброю "пістолет" 5)"#, &mut symbols, &mut strings).unwrap();
         assert_eq!(value_to_string(word, &symbols, &strings), r#"(дай-зброю "пістолет" 5)"#);
+    }
+
+    #[test]
+    fn prints_game_handle_without_leaking_the_pointer() {
+        let symbols = SymbolTable::new();
+        let mut strings = BoxedTable::new();
+        let word = strings.add_game_handle(0xdead_beef_usize as *mut core::ffi::c_void);
+        let printed = value_to_string(word, &symbols, &strings);
+        assert_eq!(printed, "#<game-handle>");
+        assert!(!printed.contains("deadbeef") && !printed.contains("dead_beef"));
     }
 }

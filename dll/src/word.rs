@@ -3,14 +3,22 @@
 //! TAG_BITS=3, PAYLOAD_BITS=61): Cons=0, Nil=1, True=2 (unused, see
 //! nucleus.s), Fixnum=3, Symbol=4, Closure=5, Capability=6.
 //!
-//! Boxed values (currently just String): RATIFIED 2026-09-10 as
-//! `Tag::Boxed = 7` in `wsm-target-contract` (contract v3, commit
-//! `bb6e119`, `docs/migration-2026-09-10-boxed-tag.md`) -- no longer
-//! this crate's own tentative proposal. `TAG_BOXED` below is now a
-//! straight re-export of `wsm_os_target::Tag::Boxed`, not a local
-//! constant duplicating the number by hand (per that migration note's
-//! own instruction to this crate, and wsm-my-lisp#1's acceptance
-//! criterion against uncoordinated local copies of ABI constants).
+//! Boxed values: RATIFIED 2026-09-10 as `Tag::Boxed = 7` in
+//! `wsm-target-contract` (contract v3, commit `bb6e119`,
+//! `docs/migration-2026-09-10-boxed-tag.md`) -- no longer this crate's
+//! own tentative proposal. `TAG_BOXED` below is now a straight re-export
+//! of `wsm_os_target::Tag::Boxed`, not a local constant duplicating the
+//! number by hand (per that migration note's own instruction to this
+//! crate, and wsm-my-lisp#1's acceptance criterion against uncoordinated
+//! local copies of ABI constants). Two `BoxedValue` kinds exist so far:
+//! `Str` (the original proposal) and `GameHandle` (ratified same day,
+//! contract v4, commit `5768f35`,
+//! `docs/migration-2026-09-10-game-handle-boxed-kind.md` -- an opaque
+//! game-engine object reference, deliberately NOT a new `Tag::Capability`
+//! variant, since `CapabilityDescriptor.instance` is a hard `u8` that
+//! cannot represent the likely number of live RTTI handles in a play
+//! session, and `Capability`'s own unforgeability guarantee doesn't hold
+//! for a handle a host function just handed back).
 //!
 //! History, for context: this was originally proposed narrowly as
 //! `TAG_STRING`. my-lisp confirmed (2026-09-10, reading
@@ -124,11 +132,24 @@ impl SymbolTable {
 
 /// A boxed value's kind, carried inside the table entry itself (cml's
 /// recommendation -- see this module's header) rather than in the tag
-/// bits. Only `Str` exists today; this enum is exactly where a future
-/// `Vector`/`NumericBuffer` variant would be added, per cml's review,
-/// without needing a new primary tag or touching word encoding at all.
+/// bits. This enum is exactly where a new kind gets added, per cml's
+/// review, without needing a new primary tag or touching word encoding
+/// at all -- `GameHandle` is the second proof of that, ratified
+/// 2026-09-10 (`docs/migration-2026-09-10-game-handle-boxed-kind.md` in
+/// wsm-target-contract, contract v4): an opaque game-engine object
+/// reference (e.g. a RED4ext RTTI handle obtained via
+/// `ExecuteGlobalFunction`), NOT dereferenced on this side of the FFI
+/// boundary -- this crate only stores and returns the pointer value
+/// opaquely, matching my-lisp's own `docs/cyberpunk-opaque-capability-
+/// semantics.md` model (opaque, identity-only equality, no type-level
+/// permission distinction observed by the language). What the pointer
+/// actually references, how it's obtained, and its validity lifetime are
+/// entirely the adapter's (`my-lisp-cyberpunk`) concern, not this
+/// crate's -- there is deliberately no `unsafe` dereference of it
+/// anywhere in `dll/`.
 pub enum BoxedValue {
     Str(String),
+    GameHandle(*mut core::ffi::c_void),
 }
 
 /// Per-evaluator boxed-value table, ratified shape (see this module's
@@ -168,7 +189,65 @@ impl BoxedTable {
         let index = (handle - 1) as usize;
         match self.values.get(index) {
             Some(BoxedValue::Str(s)) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Same shape as `add_string`, for an opaque game-engine handle
+    /// instead of a string. The pointer is stored and returned verbatim,
+    /// never dereferenced here -- see `BoxedValue::GameHandle`'s own doc.
+    pub fn add_game_handle(&mut self, handle: *mut core::ffi::c_void) -> u64 {
+        let index = self.values.len() as u64 + 1;
+        self.values.push(BoxedValue::GameHandle(handle));
+        wsm_os_target::encode_boxed(index).expect("handle is non-zero and within BOXED_HANDLE_MAX by construction")
+    }
+
+    pub fn get_game_handle(&self, word: u64) -> Option<*mut core::ffi::c_void> {
+        let handle = wsm_os_target::decode_boxed(word)?;
+        let index = (handle - 1) as usize;
+        match self.values.get(index) {
+            Some(BoxedValue::GameHandle(ptr)) => Some(*ptr),
+            _ => None,
+        }
+    }
+
+    /// For printer.rs: which `BoxedValue` kind `word` refers to, without
+    /// exposing the actual `GameHandle` pointer value to a printed
+    /// representation (that would leak a host address into Lisp-visible
+    /// text, defeating the whole "opaque, not a raw pointer" point).
+    pub fn kind_of(&self, word: u64) -> Option<BoxedKind> {
+        let handle = wsm_os_target::decode_boxed(word)?;
+        let index = (handle - 1) as usize;
+        match self.values.get(index) {
+            Some(BoxedValue::Str(_)) => Some(BoxedKind::Str),
+            Some(BoxedValue::GameHandle(_)) => Some(BoxedKind::GameHandle),
             None => None,
         }
+    }
+}
+
+pub enum BoxedKind {
+    Str,
+    GameHandle,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn game_handle_round_trips_and_is_distinct_from_string() {
+        let mut boxed = BoxedTable::new();
+        let fake_ptr = 0x1234_usize as *mut core::ffi::c_void;
+        let handle_word = boxed.add_game_handle(fake_ptr);
+        let string_word = boxed.add_string("пістолет".to_string());
+
+        assert_eq!(boxed.get_game_handle(handle_word), Some(fake_ptr));
+        assert_eq!(boxed.get_string(handle_word), None); // wrong kind, not a crash
+        assert_eq!(boxed.get_string(string_word), Some("пістолет"));
+        assert_eq!(boxed.get_game_handle(string_word), None); // wrong kind, not a crash
+        assert!(matches!(boxed.kind_of(handle_word), Some(BoxedKind::GameHandle)));
+        assert!(matches!(boxed.kind_of(string_word), Some(BoxedKind::Str)));
+        assert_ne!(handle_word, string_word);
     }
 }

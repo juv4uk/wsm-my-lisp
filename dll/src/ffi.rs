@@ -258,10 +258,10 @@ mod tests {
     fn string_literal_round_trips_through_eval_string() {
         unsafe {
             let session = wsm_session_init();
-            let source = CString::new(r#""pistol""#).unwrap();
+            let source = CString::new(r#""пістолет""#).unwrap();
             let result_ptr = wsm_eval_string(session, source.as_ptr());
             let result = CStr::from_ptr(result_ptr).to_str().unwrap().to_string();
-            assert_eq!(result, r#""pistol""#); // self-evaluates, prints with quotes
+            assert_eq!(result, r#""пістолет""#); // self-evaluates, prints with quotes
             wsm_free_string(result_ptr);
             wsm_session_free(session);
         }
@@ -292,13 +292,13 @@ mod tests {
     fn host_primitive_error_code_surfaces_through_eval_string() {
         unsafe {
             let session = wsm_session_init();
-            let prim_name = CString::new("give-weapon").unwrap();
+            let prim_name = CString::new("дай-зброю").unwrap();
             assert_eq!(wsm_register_primitive(session, prim_name.as_ptr(), stub_give_weapon), 0);
 
-            let source = CString::new("(give-weapon)").unwrap();
+            let source = CString::new("(дай-зброю)").unwrap();
             let result_ptr = wsm_eval_string(session, source.as_ptr());
             let result = CStr::from_ptr(result_ptr).to_str().unwrap().to_string();
-            assert_eq!(result, "error: give-weapon failed: host primitive reported error code 1");
+            assert_eq!(result, "error: дай-зброю failed: host primitive reported error code 1");
             wsm_free_string(result_ptr);
 
             wsm_session_free(session);

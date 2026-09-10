@@ -184,10 +184,10 @@ mod tests {
         let mut symbols = SymbolTable::new();
         let mut strings = StringTable::new();
         let env = Env::new();
-        let word = read_one(r#""pistol""#, &mut symbols, &mut strings).unwrap();
+        let word = read_one(r#""пістолет""#, &mut symbols, &mut strings).unwrap();
         let result = eval(word, &env, &symbols).unwrap();
         assert_eq!(result, word); // self-evaluating: same word in, same word out
-        assert_eq!(strings.get(result), Some("pistol"));
+        assert_eq!(strings.get(result), Some("пістолет"));
     }
 
     #[test]
@@ -229,23 +229,23 @@ mod tests {
     #[test]
     fn dispatches_string_argument_to_host_primitive() {
         // From my-lisp's docs/cyberpunk-host-dispatch-fixtures.md §2:
-        // `(give-weapon "pistol" 5)` -> evaluated args `("pistol" 5)`.
+        // `(дай-зброю "пістолет" 5)` -> evaluated args `("пістолет" 5)`.
         let mut symbols = SymbolTable::new();
         let mut strings = StringTable::new();
         let mut env = Env::new();
         let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
         let calls_clone = calls.clone();
         env.register_primitive(
-            "give-weapon",
+            "дай-зброю",
             Box::new(move |args: &[u64]| {
                 calls_clone.borrow_mut().push(args.to_vec());
                 Ok(WORD_NIL)
             }),
         );
-        let word = read_one(r#"(give-weapon "pistol" 5)"#, &mut symbols, &mut strings).unwrap();
+        let word = read_one(r#"(дай-зброю "пістолет" 5)"#, &mut symbols, &mut strings).unwrap();
         eval(word, &env, &symbols).unwrap();
         let recorded = calls.borrow();
-        assert_eq!(strings.get(recorded[0][0]), Some("pistol"));
+        assert_eq!(strings.get(recorded[0][0]), Some("пістолет"));
         assert_eq!(decode_fixnum(recorded[0][1]), 5);
     }
 
@@ -255,14 +255,14 @@ mod tests {
         let mut strings = StringTable::new();
         let mut env = Env::new();
         env.register_primitive(
-            "give-weapon",
+            "дай-зброю",
             Box::new(|_args: &[u64]| Err("unknown weapon id".to_string())),
         );
-        let word = read_one("(give-weapon)", &mut symbols, &mut strings).unwrap();
+        let word = read_one("(дай-зброю)", &mut symbols, &mut strings).unwrap();
         assert_eq!(
             eval(word, &env, &symbols),
             Err(EvalError::HostPrimitiveFailed {
-                name: "give-weapon".to_string(),
+                name: "дай-зброю".to_string(),
                 message: "unknown weapon id".to_string(),
             })
         );

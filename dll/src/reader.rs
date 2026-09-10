@@ -236,13 +236,13 @@ mod tests {
     #[test]
     fn reads_string_literal_argument() {
         // From my-lisp's docs/cyberpunk-host-dispatch-fixtures.md §1:
-        // `(give-weapon "pistol" 5)`.
+        // `(дай-зброю "пістолет" 5)`.
         let mut symbols = SymbolTable::new();
         let mut strings = StringTable::new();
-        let word = read_one(r#"(give-weapon "pistol" 5)"#, &mut symbols, &mut strings).unwrap();
+        let word = read_one(r#"(дай-зброю "пістолет" 5)"#, &mut symbols, &mut strings).unwrap();
         let rest = unsafe { wsm_cdr(core::ptr::null_mut(), word) };
         let arg1 = unsafe { wsm_car(core::ptr::null_mut(), rest) };
-        assert_eq!(strings.get(arg1), Some("pistol"));
+        assert_eq!(strings.get(arg1), Some("пістолет"));
     }
 
     #[test]

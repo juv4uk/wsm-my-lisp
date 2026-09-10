@@ -144,7 +144,7 @@ mod tests {
     fn prints_string_literal_with_quotes() {
         let mut symbols = SymbolTable::new();
         let mut strings = StringTable::new();
-        let word = read_one(r#"(give-weapon "pistol" 5)"#, &mut symbols, &mut strings).unwrap();
-        assert_eq!(value_to_string(word, &symbols, &strings), r#"(give-weapon "pistol" 5)"#);
+        let word = read_one(r#"(дай-зброю "пістолет" 5)"#, &mut symbols, &mut strings).unwrap();
+        assert_eq!(value_to_string(word, &symbols, &strings), r#"(дай-зброю "пістолет" 5)"#);
     }
 }

@@ -23,6 +23,8 @@ compile_error!(
 );
 
 pub mod eval;
+pub mod ffi;
+pub mod printer;
 pub mod reader;
 pub mod word;
 

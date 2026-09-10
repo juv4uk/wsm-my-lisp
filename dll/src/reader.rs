@@ -169,6 +169,22 @@ mod tests {
     }
 
     #[test]
+    fn reads_ukrainian_identifiers() {
+        // The project's default working language is Ukrainian (lib/surface/uk.my
+        // in my-lisp, 100% Ukrainian Surface Coverage) -- the reader's own
+        // tokenizer already iterates `char`s (Unicode scalar values via
+        // Rust's UTF-8-aware `chars()`), so Cyrillic identifiers were never
+        // a special case to add, just something to actually verify.
+        let mut symbols = SymbolTable::new();
+        let word = read_one("(телепортуй гравець 100 200 50)", &mut symbols).unwrap();
+        let head = unsafe { wsm_car(core::ptr::null_mut(), word) };
+        assert_eq!(symbols.name_of(head), Some("телепортуй"));
+        let rest = unsafe { wsm_cdr(core::ptr::null_mut(), word) };
+        let arg1 = unsafe { wsm_car(core::ptr::null_mut(), rest) };
+        assert_eq!(symbols.name_of(arg1), Some("гравець"));
+    }
+
+    #[test]
     fn rejects_trailing_input() {
         let mut symbols = SymbolTable::new();
         let err = read_one("42 43", &mut symbols).unwrap_err();

@@ -250,6 +250,27 @@ mod tests {
     }
 
     #[test]
+    fn unknown_symbol_error_text_is_not_mangled_for_cyrillic() {
+        // my-lisp confirmed (docs/cyberpunk-host-dispatch-fixtures.md,
+        // commit 5a6bb90) that their own UnknownSymbol error text carries
+        // the Cyrillic identifier verbatim, no mangling. Same expectation
+        // here, through the full FFI round-trip (CStr -> read -> eval ->
+        // CString), not just the in-memory Rust value.
+        unsafe {
+            let session = wsm_session_init();
+            let source = CString::new("(збережи-гру)").unwrap();
+            let result_ptr = wsm_eval_string(session, source.as_ptr());
+            let result = CStr::from_ptr(result_ptr).to_str().unwrap().to_string();
+            assert_eq!(
+                result,
+                "error: unknown symbol · nevidomyi symvol · unbekanntes Symbol: збережи-гру"
+            );
+            wsm_free_string(result_ptr);
+            wsm_session_free(session);
+        }
+    }
+
+    #[test]
     fn host_primitive_error_code_surfaces_through_eval_string() {
         unsafe {
             let session = wsm_session_init();

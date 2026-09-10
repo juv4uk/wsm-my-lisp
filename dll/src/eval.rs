@@ -268,6 +268,30 @@ mod tests {
     }
 
     #[test]
+    fn dispatches_ukrainian_identifiers() {
+        // Matches my-lisp's own updated docs/cyberpunk-host-dispatch-fixtures.md
+        // (commit 5a6bb90): canonical examples now use Ukrainian identifiers
+        // (телепортуй/гравець) rather than English ones -- same semantics,
+        // just proving the evaluator dispatches on them identically, not
+        // only on ASCII symbol names.
+        let mut symbols = SymbolTable::new();
+        let mut env = Env::new();
+        env.bind("гравець", symbols.intern("гравець-handle"));
+        let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let calls_clone = calls.clone();
+        env.register_primitive(
+            "телепортуй",
+            Box::new(move |args: &[u64]| {
+                calls_clone.borrow_mut().push(args.to_vec());
+                Ok(WORD_NIL)
+            }),
+        );
+        let word = read_one("(телепортуй гравець 100 200 50)", &mut symbols).unwrap();
+        eval(word, &env, &symbols).unwrap();
+        assert_eq!(calls.borrow().len(), 1);
+    }
+
+    #[test]
     fn cond_skips_falsy_and_picks_first_truthy() {
         let mut symbols = SymbolTable::new();
         let env = Env::new();

@@ -58,12 +58,24 @@ wsm_cons:
     movq    %r9, wsm_arena_next(%rip)
     ret                             /* %rax already holds the tagged (tag=0) pointer */
 wsm_cons_oom:
-    subq    $32, %rsp               /* Win64 shadow space for the call below */
+    /* 40, not 32: Win64 ABI requires RSP % 16 == 0 immediately before a
+     * `call`. On entry to wsm_cons (i.e. right after ITS OWN caller's
+     * `call`), RSP % 16 == 8 (a `call` pushes an 8-byte return address
+     * onto a 16-aligned stack) -- so an even subtraction like 32 leaves
+     * RSP % 16 == 8 at our own `call` below, not 0. subq $40 (32 bytes of
+     * mandatory shadow space + 8 bytes of padding) restores 16-alignment.
+     * CONFIRMED BY ACTUALLY CRASHING: an earlier `subq $32` version of
+     * this function made dll/tests/oom_path.rs's subprocess exit via
+     * STATUS_ACCESS_VIOLATION (0xC0000005) instead of wsm_fail_win64's
+     * intended exit(97) -- eprintln!'s formatting path apparently uses an
+     * SSE instruction that faults on a misaligned stack. Not a hypothetical
+     * concern flagged in a comment; a real, reproduced, then-fixed bug. */
+    subq    $40, %rsp
     movl    $1, %ecx                /* ErrorCode::OutOfMemory = 1 (arg1: code) */
     xorl    %edx, %edx               /* arg2: a = 0 */
     xorl    %r8d, %r8d               /* arg3: b = 0 */
     call    wsm_fail_win64
-    addq    $32, %rsp
+    addq    $40, %rsp
     ret                              /* unreached if wsm_fail_win64 diverges as documented */
 
 /* wsm_car(context [rcx, ignored], pair: Word [rdx]) -> Word */

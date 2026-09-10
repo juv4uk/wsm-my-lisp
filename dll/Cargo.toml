@@ -7,3 +7,11 @@ edition = "2021"
 # rlib in addition to cdylib so `cargo test` can link the primitive
 # smoke tests below; the shipped artifact is still the cdylib.
 crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+# Deliberately exhausts the 4096-byte arena and exits via wsm_fail_win64.
+# A unit test can't exercise this in-process (it calls process::exit,
+# which would kill the whole test runner) -- tests/oom_path.rs spawns
+# this as a subprocess instead and checks its exit code/stderr.
+name = "oom-trigger"
+path = "src/bin/oom_trigger.rs"

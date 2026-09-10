@@ -114,20 +114,19 @@ documented semantics.
 cargo test --target x86_64-pc-windows-msvc
 ```
 
-50 tests total: 49 in-process unit/integration tests (including
+51 tests total: 50 in-process unit/integration tests (including
 `tests/my_lisp_fixture_parity.rs`, a consolidated parity harness against
 my-lisp's own conformance fixtures) plus one real subprocess test
 (`tests/oom_path.rs`) that deliberately exhausts the 4096-byte arena and
 checks the resulting crash/exit path for real, rather than asserting it
 would probably work.
 
-## Performance -- the real limit is arena capacity, not speed
+## Performance
 
 `cargo run --release --bin bench --target x86_64-pc-windows-msvc -- all`
 runs `src/bin/bench.rs`, a manual `std::time::Instant` timing harness
 (no criterion/nightly dependency). Read that file's own header comment
-before trusting any number below out of context -- **the actual
-bottleneck this measured is not latency**:
+for the full context on each number below:
 
 - `wsm_eval_string("(noop)")`, full FFI round trip: ~480 ns/call.
 - The same work called directly in Rust (no `CString`/`CStr`/
@@ -142,17 +141,30 @@ bottleneck this measured is not latency**:
   at ~5-7 ns/call regardless of table size, as the `Vec`-index design
   predicts, rather than assuming it.
 
-**But none of those numbers matter yet**, because `asm/nucleus-win64.s`'s
-arena (see "Threading" above) is a single global 4096-byte (256-cell)
-bump allocator that is **never reset, for the entire lifetime of the
-loaded DLL** -- not per-session, not reclaimable. A controlled
-measurement pinned the exact ceiling: `wsm_eval_string("(quote a)")` (a
-2-cons-cell expression, 32 bytes) succeeds for **exactly 128 calls**
-(4096 / 32 = 128, confirmed empirically, not computed and assumed) before
-the 129th call hits `wsm_fail_win64` and the whole process aborts. A
-real game session that ever issues more than roughly 128-256 total
-list-allocating Lisp commands across its entire lifetime -- not per
-frame, not per second, ever -- will hard-crash the same way. Making the
-interpreter faster does nothing for this; the arena itself needs to
-become reclaimable or substantially larger before per-call latency is
-the relevant question.
+### Arena capacity -- found broken, then fixed (both real, both worth knowing)
+
+`asm/nucleus-win64.s`'s arena (see "Threading" above) is a single global
+4096-byte (256-cell) bump allocator -- originally never reset, for the
+entire lifetime of the loaded DLL, not per-session, not reclaimable. A
+controlled measurement pinned the exact ceiling this caused:
+`wsm_eval_string("(quote a)")` (a 2-cons-cell expression, 32 bytes)
+succeeded for **exactly 128 calls** (4096 / 32 = 128, confirmed
+empirically) before the 129th call hit `wsm_fail_win64` and aborted the
+whole process -- a real game session issuing more than ~128-256 total
+list-allocating Lisp commands across its entire lifetime would have
+hard-crashed the same way, regardless of how fast the interpreter itself
+ran.
+
+**Fixed** (owner go-ahead, per-eval arena reset): `asm/nucleus-win64.s`
+now exports `wsm_arena_reset`, and `ffi.rs`'s `wsm_eval_string` calls it
+at the start of every top-level eval. `repeated_eval_string_calls_
+survive_past_the_old_arena_ceiling` (in `ffi.rs`'s own test module) runs
+500 calls -- past the old 128-call ceiling -- and passes. Read
+`eval_str`'s own doc comment in `ffi.rs` for the precise safety
+reasoning and its two known, currently-unexercised limits: (1) it
+assumes Lisp code never needs a cons value to survive past the end of
+one top-level eval (true today -- no `def`/`let`/closures exist yet;
+would need revisiting if any of those are added), and (2) the arena is
+still one global resource, not per-`Session` -- only one `Session`
+should be mid-eval-lifetime at a time, since one session's reset
+discards any other live session's in-flight cons allocations too.

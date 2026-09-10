@@ -41,6 +41,16 @@ unsafe extern "C" {
     pub fn wsm_eq(context: *mut core::ffi::c_void, left: u64, right: u64) -> u64;
     #[allow(dead_code)]
     pub fn wsm_atom(context: *mut core::ffi::c_void, value: u64) -> u64;
+    /// Rewinds the bump-allocator arena to its start. See
+    /// asm/nucleus-win64.s's own doc comment on this symbol for the full
+    /// safety precondition -- NOT safe to call while any previously
+    /// returned cons-containing Word is still expected to be valid.
+    /// `ffi.rs`'s `wsm_eval_string` is the one place in this crate that
+    /// calls it, at the very start of each top-level eval (see that
+    /// function's own doc comment for why that's safe under this
+    /// crate's current language capabilities, and what it does NOT
+    /// cover).
+    pub fn wsm_arena_reset(context: *mut core::ffi::c_void);
 }
 
 /// Called from asm/nucleus-win64.s's `wsm_cons_oom` path (Win64 ABI:

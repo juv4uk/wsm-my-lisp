@@ -112,6 +112,24 @@ wsm_atom:
     movl    $TAG_NIL, %eax          /* low 3 bits all zero => Tag::Cons => not an atom */
 1:  ret
 
+/* wsm_arena_reset(context [rcx, ignored]) -> void -- rewinds the bump
+ * pointer back to the arena's start, discarding every cons cell
+ * allocated since the last reset (or since load, if never reset). NOT
+ * a general-purpose free: this invalidates every Word still reachable
+ * only through those discarded cells. Added 2026-09-10 (owner go-ahead)
+ * after dll/'s own bench.rs found the fixed 256-cell arena, never
+ * reset, hard-crashes the whole process after exactly 128 calls to
+ * wsm_eval_string("(quote a)") -- see dll/README.md's "Performance"
+ * section and dll/src/ffi.rs's wsm_eval_string for the actual call
+ * site and its documented safety preconditions (this is deliberately
+ * NOT safe to call while any previously-returned cons-containing Word
+ * is still expected to be valid). */
+    .globl wsm_arena_reset
+wsm_arena_reset:
+    leaq    wsm_arena(%rip), %rax
+    movq    %rax, wsm_arena_next(%rip)
+    ret
+
     /* wsm_fail_win64(code: u32 [ecx], a: Word [rdx], b: Word [r8]) -> ! --
      * NOT defined in this file. Provided by the Rust DLL wrapper crate
      * (extern "C" fn wsm_fail_win64, Win64 ABI, must not return). See

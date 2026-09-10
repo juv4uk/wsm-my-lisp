@@ -3,30 +3,27 @@
 //! table grows. `std::time::Instant`-based, no criterion/nightly
 //! `#[bench]` dependency.
 //!
-//! **THE HEADLINE FINDING IS NOT A TIMING NUMBER**: asm/nucleus-win64.s's
-//! arena (wsm_arena/wsm_arena_next) is a single global 4096-byte
-//! (256-cell) bump allocator, never reset, shared by EVERY Session and
-//! EVERY wsm_cons call for the entire lifetime of the loaded DLL/process
-//! -- not per-session, not reclaimable. Any expression requiring at least
-//! one list allocation permanently consumes cons cells from that same
-//! 256-cell budget. Running this bench's first version with 100,000
-//! iterations of `wsm_eval_string("(noop)")` hit wsm_fail_win64's
-//! exit(97) after roughly 256 calls, not 100,000 -- discovered by
-//! actually running it, not assumed. A follow-up controlled measurement
-//! pinned the EXACT number for a 2-cell expression: `wsm_eval_string`
-//! on `"(quote a)"` (a 2-element list -> 2 wsm_cons calls, 32 bytes)
-//! succeeds for **exactly 128 calls** (4096 / 32 = 128 exactly, no
-//! fudge factor) before the 129th hits wsm_fail_win64. A real game
-//! session issuing more than ~128-256 total list-allocating Lisp
-//! commands over its ENTIRE LIFETIME (not per frame, not per second --
-//! ever, until the plugin DLL is unloaded) will hard-crash the same
-//! way. This is a far more urgent constraint than any per-call
-//! nanosecond figure below, and the numbers below should be read in
-//! that light: a fast interpreter that can only ever run ~128-256
-//! total commands is not "fast enough for a frame budget," it's simply
-//! not usable for a real play session yet -- fixing THIS (a real,
-//! reclaimable, or much larger arena) is a prerequisite for the
-//! per-call latency numbers below to matter at all.
+//! **THE ARENA-CEILING FINDING BELOW IS HISTORICAL, FIXED, STILL WORTH
+//! READING**: this bench originally found asm/nucleus-win64.s's arena
+//! (wsm_arena/wsm_arena_next, a global 4096-byte/256-cell bump
+//! allocator, never reset) hard-crashing the whole process after
+//! `wsm_eval_string("(quote a)")` (2 cons cells) succeeded for
+//! **exactly 128 calls** (4096 / 32 = 128 exactly) before the 129th hit
+//! wsm_fail_win64 -- confirmed by actually running it, not assumed. Per
+//! owner go-ahead, `ffi.rs`'s `wsm_eval_string` now calls a new
+//! `wsm_arena_reset` (asm/nucleus-win64.s) at the start of every
+//! top-level eval, which fixes exactly this: `dll/src/ffi.rs`'s
+//! `repeated_eval_string_calls_survive_past_the_old_arena_ceiling` test
+//! runs 500 calls (past the old 128-call ceiling) and passes. That
+//! fix's own doc comment (on `eval_str` in `ffi.rs`) spells out exactly
+//! what it does and does NOT cover (no persisted cons values across
+//! calls, single active session at a time) -- read it before assuming
+//! the arena is unconditionally "solved." Sections A/B/C below still use
+//! a conservative iteration count (`CONS_BOUND_ITERATIONS`) for a fair
+//! side-by-side comparison across all three (B and C call the reader/
+//! evaluator directly, bypassing `wsm_eval_string`'s reset, so they are
+//! still bound by the raw 256-cell ceiling) -- section A alone could now
+//! safely run far more iterations than this.
 //!
 //! Each cons-allocating section here therefore runs in ITS OWN process
 //! invocation (spawned by tests/bench_the_bench.sh-equivalent logic

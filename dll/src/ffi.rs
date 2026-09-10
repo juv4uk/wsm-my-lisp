@@ -170,7 +170,53 @@ pub unsafe extern "C" fn wsm_eval_string(session: *mut Session, source: *const c
         .into_raw()
 }
 
+/// Resets the shared asm arena at the start of every top-level eval, so a
+/// long-lived session (a REPL, or any adapter issuing many `wsm_eval_string`
+/// calls over time) doesn't exhaust the fixed 256-cell arena after ~128
+/// calls -- see `dll/README.md`'s "Performance" section for the exact,
+/// empirically-confirmed ceiling this fixes and `asm/nucleus-win64.s`'s
+/// `wsm_arena_reset` doc comment for the underlying mechanism.
+///
+/// **Why this is safe under this crate's CURRENT language capabilities,
+/// and where that stops being true**: nothing in `eval.rs` lets a Lisp
+/// expression persist a cons-containing value past the end of the
+/// top-level form that produced it -- there is no `def`/`let`/closures,
+/// only `Env::bindings` (set exclusively by the *host* via `wsm_bind`,
+/// never by evaluated Lisp code) and `BoxedTable` (Rust-heap-owned, not
+/// arena memory). By the time `eval_str` returns, the result has already
+/// been fully printed to an owned `String` (walking any cons cells via
+/// `wsm_car`/`wsm_cdr` during printing, before this function returns) --
+/// so nothing outstanding still needs THIS call's arena allocations once
+/// the next call's reset runs. This stops being safe the moment either
+/// changes: (1) if `eval.rs` ever gains a form that lets Lisp code stash
+/// a cons value somewhere expected to outlive one top-level eval (a
+/// future `def`, for instance), or (2) if a host ever calls `wsm_bind`
+/// with a `Word` whose tag is `Cons` (bindings today are always Fixnum/
+/// Symbol/Boxed handles in every adapter usage seen so far, but nothing
+/// in this crate's types currently prevents a `Cons`-tagged bind) --
+/// either would leave a dangling reference after the very next reset.
+/// Neither is exercised by this crate's own test suite; revisit this
+/// comment (and likely make the reset conditional or session-scoped for
+/// real) before either becomes true.
+///
+/// **Also true, unrelated to this reset specifically but sharpened by
+/// it**: the arena itself is one global static in `asm/nucleus-win64.s`,
+/// not per-`Session` -- `dll/README.md`'s embed contract already
+/// documents "single thread only," but this reset makes an additional,
+/// previously-latent assumption load-bearing: only ONE `Session` should
+/// be mid-eval-lifetime at a time, full stop, even across threads taking
+/// turns. If two `Session`s are ever alive concurrently and BOTH call
+/// `wsm_eval_string`, each call's reset discards the other session's
+/// in-flight cons allocations too -- there is no per-session isolation
+/// at the arena level, only at the Rust-struct level (`Env`/
+/// `SymbolTable`/`BoxedTable`). Not exercised by this crate's tests
+/// (which use one `Session` at a time); a real per-session arena would
+/// need the arena itself to move out of static storage and into
+/// something the `context` parameter (currently ignored everywhere)
+/// actually threads through -- a bigger change than this fix, not
+/// attempted here.
 fn eval_str(session: &mut Session, text: &str) -> String {
+    unsafe { crate::wsm_arena_reset(core::ptr::null_mut()) };
     let word = match reader::read_one(text, &mut session.symbols, &mut session.boxed) {
         Ok(w) => w,
         Err(ReadError::UnexpectedEof) => return "error: unexpected end of input".to_string(),
@@ -468,6 +514,31 @@ mod tests {
             assert_eq!(result, "t");
             wsm_free_string(result_ptr);
 
+            wsm_session_free(session);
+        }
+    }
+
+    #[test]
+    fn repeated_eval_string_calls_survive_past_the_old_arena_ceiling() {
+        // Before the wsm_arena_reset fix, dll/src/bin/bench.rs found
+        // wsm_eval_string("(quote a)") hard-crashing the whole process
+        // (exit 97) on exactly the 129th call, since the shared asm
+        // arena (4096 bytes / 16 bytes per cons cell = 256 cells; this
+        // 2-cons-cell expression = 128 calls) was never reset. This test
+        // runs well past that old ceiling (500 > 128) and must still
+        // succeed -- if the reset regresses, this test would crash the
+        // whole test process, not just fail an assertion (same failure
+        // mode `tests/oom_path.rs` exists to catch for the raw wsm_cons
+        // path; this one covers the wsm_eval_string path specifically).
+        unsafe {
+            let session = wsm_session_init();
+            let source = CString::new("(quote a)").unwrap();
+            for i in 0..500 {
+                let result_ptr = wsm_eval_string(session, source.as_ptr());
+                let result = CStr::from_ptr(result_ptr).to_str().unwrap().to_string();
+                assert_eq!(result, "a", "call {i} produced an unexpected result");
+                wsm_free_string(result_ptr);
+            }
             wsm_session_free(session);
         }
     }

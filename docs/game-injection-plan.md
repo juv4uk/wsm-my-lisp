@@ -154,6 +154,15 @@ this update:
   `catch_unwind` doesn't reach that case. Not exercised against a real
   RED4ext-hosted callback yet, only Rust-side unit tests.
 
+**Threading rule for any adapter calling into `wsm_my_lisp_cyberpunk_dll.dll`**:
+single-threaded per session, no exceptions -- `dll/README.md`'s "Embed
+contract" section has the full, confirmed reasoning (the win64 nucleus's
+arena is one unsynchronized global bump allocator). An adapter must call
+every `wsm_*` function for a given session from one thread; RED4ext's own
+`Main`/callback dispatch model needs to be checked against this before any
+future capability registers a primitive that might be invoked from a
+different thread than the one that called `wsm_session_init`.
+
 ## CET (CyberEngineTweaks) coexistence
 
 Not confirmed by this research -- the RED4ext documentation fetched here

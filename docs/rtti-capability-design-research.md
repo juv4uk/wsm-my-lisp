@@ -103,10 +103,34 @@ repo's own session.
   `examples/execute_functions/Main.cpp` (in the vendored SDK) shows this
   pattern end-to-end for a global system (`gameTimeSystem`), which is
   closer to `game-version` in shape than `player-position` is.
-- A per-instance read like `player-position` needs an actual player/game
-  instance handle first (`RED4ext::Natives::ScriptGameInstance` exists in
-  the SDK, `include/RED4ext/Scripting/Natives/ScriptGameInstance.hpp`) --
-  not yet researched in depth here how that instance is obtained from a
-  plugin's `Main` context (RED4ext.SDK's examples don't cover this case
-  directly in what was checked); this is a real gap in this research, not
-  papered over.
+- **Gap closed (2026-09-10, second research pass)**: the player instance
+  is NOT obtained eagerly inside a plugin's `Main`. The vendored SDK's
+  `examples/accessing_properties/Main.cpp` shows the real pattern:
+  1. `Main(..., EMainReason::Load, ...)` only registers callbacks --
+     `RED4ext::CRTTISystem::Get()->AddRegisterCallback(RegisterTypes)`
+     and `AddPostRegisterCallback(PostRegisterTypes)`.
+  2. `PostRegisterTypes` (called later by RED4ext, not by the plugin)
+     registers one or more `CGlobalFunction`s via
+     `rtti->RegisterFunction(...)` -- these become the plugin's actual
+     callable entry points from the game's own scripting system.
+  3. **Only inside one of those registered functions**, when RED4ext or
+     game script code actually invokes it, does the code call
+     `RED4ext::ExecuteGlobalFunction("GetPlayer;GameInstance", &handle,
+     gameInstance)` against a **default-constructed**
+     `RED4ext::ScriptGameInstance gameInstance;` -- the instance appears
+     to resolve against an implicit "current game" context at call time,
+     not something the plugin has to explicitly obtain/store from `Main`.
+     The result, `RED4ext::Handle<RED4ext::IScriptable>`, is RED4ext's
+     own reference-counted/checked handle type (not a bare pointer) --
+     truthy-checked (`if (handle)`) before use.
+  4. From that handle, `rtti->GetClass("PlayerPuppet")->GetProperty(...)`
+     (e.g. `inCrouch`) or `->GetFunction(...)` (e.g. `GetHudManager`)
+     reads a property or calls a further method on the resolved instance.
+  This directly answers this doc's earlier open question: a game-facing
+  Lisp primitive's C callback (the `HostPrimitiveFn` registered through
+  `wsm_register_primitive`) is exactly the right place to call
+  `ExecuteGlobalFunction("GetPlayer;GameInstance", ...)` -- not something
+  that needs to happen earlier in adapter startup. `RED4ext::Handle<T>`
+  is also a plausible concrete type to wrap into whichever opaque word
+  representation (`Tag::Boxed` extension or new `CapabilityKind`) the
+  open tag question above resolves to.

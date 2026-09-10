@@ -5,24 +5,18 @@ const WIN64_NUCLEUS: &str = include_str!("../../asm/nucleus-win64.s");
 
 fn strip_block_comments(source: &str) -> String {
     let mut out = String::with_capacity(source.len());
-    let bytes = source.as_bytes();
-    let mut i = 0;
-    let mut in_comment = false;
-    while i < bytes.len() {
-        if !in_comment && i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
-            in_comment = true;
-            i += 2;
-            continue;
-        }
-        if in_comment && i + 1 < bytes.len() && bytes[i] == b'*' && bytes[i + 1] == b'/' {
-            in_comment = false;
-            i += 2;
-            continue;
-        }
-        if !in_comment {
-            out.push(bytes[i] as char);
-        }
-        i += 1;
+    let mut rest = source;
+    loop {
+        let Some(start) = rest.find("/*") else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..start]);
+        let after_start = &rest[start + 2..];
+        let Some(end) = after_start.find("*/") else {
+            break;
+        };
+        rest = &after_start[end + 2..];
     }
     out
 }
@@ -41,10 +35,10 @@ fn equ_u64(source: &str, name: &str) -> Option<u64> {
     })
 }
 
-fn function_body<'a>(source: &'a str, label: &str, next_label: &str) -> Option<&'a str> {
+fn function_body<'a>(source: &'a str, label: &str) -> Option<&'a str> {
     let start = source.find(&format!("\n{label}:"))?;
-    let rest = &source[start..];
-    let end = rest.find(&format!("\n{next_label}:"))?;
+    let rest = &source[start + label.len() + 2..];
+    let end = rest.find("\n    .globl ").unwrap_or(rest.len());
     Some(&rest[..end])
 }
 
@@ -90,8 +84,8 @@ fn authority_violations(source: &str) -> Vec<String> {
         violations.push("target-contract CANONICAL_T no longer matches its Symbol projection".into());
     }
 
-    for (label, next) in [("wsm_eq", "wsm_atom"), ("wsm_atom", "wsm_fail")] {
-        match function_body(&code, label, next) {
+    for label in ["wsm_eq", "wsm_atom"] {
+        match function_body(&code, label) {
             Some(body) => {
                 if !body.contains("$SYM_T_WORD") {
                     violations.push(format!("{label} positive branch must emit canonical Symbol(t)"));
@@ -129,12 +123,15 @@ fn manufactured_true_fixture_is_rejected_fail_closed() {
         .equ TAG_MASK, 7
         .equ SYM_T_ID, 0x1FFFFFFFFFFFFFFF
         .equ SYM_T_WORD, (SYM_T_ID << 3) | TAG_SYMBOL
+        .globl wsm_eq
 wsm_eq:
         movl $TAG_TRUE, %eax
         ret
+        .globl wsm_atom
 wsm_atom:
         movl $TAG_TRUE, %eax
         ret
+        .globl wsm_fail
 wsm_fail:
         ret
 "#;

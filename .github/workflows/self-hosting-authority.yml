@@ -1,0 +1,57 @@
+name: self-hosting authority + SysV witnesses
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "asm/**"
+      - "harness/**"
+      - ".github/workflows/self-hosting-authority.yml"
+  pull_request:
+    paths:
+      - "asm/**"
+      - "harness/**"
+      - ".github/workflows/self-hosting-authority.yml"
+  workflow_dispatch:
+
+jobs:
+  authority-and-witnesses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check semantic authority guard
+        run: |
+          cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority
+
+      - name: Compile all SysV witness binaries
+        run: |
+          cargo test --manifest-path harness/Cargo.toml --locked --no-run
+
+      - name: Execute atom witness
+        shell: bash
+        run: |
+          test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-atom)" = "t"
+
+      - name: Execute cons witness
+        shell: bash
+        run: |
+          test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-cons)" = "(A . B)"
+
+      - name: Execute eq witness
+        shell: bash
+        run: |
+          test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-eq)" = "wsm_eq: (eq 41 41) -> t, (eq 41 42) -> ()  [both correct]"
+
+      - name: Execute lambda witness
+        shell: bash
+        run: |
+          test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-lambda)" = "7"
+
+      - name: Execute bounded recursion witness
+        shell: bash
+        run: |
+          test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-countdown)" = "countdown 100000 -> done"

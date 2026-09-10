@@ -5,3 +5,11 @@ version = 4
 [[package]]
 name = "wsm-my-lisp-harness"
 version = "0.1.0"
+dependencies = [
+ "wsm-os-target",
+]
+
+[[package]]
+name = "wsm-os-target"
+version = "0.1.0"
+source = "git+https://github.com/juv4uk/wsm-target-contract.git?rev=bb6e119#bb6e119d8056c7f5826f36a0dac2d693cd1946b1"

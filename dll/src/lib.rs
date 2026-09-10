@@ -66,11 +66,7 @@ pub extern "C" fn wsm_fail_win64(code: u32, a: u64, b: u64) -> ! {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // Tag encoding, mirrored from asm/nucleus-win64.s / asm/nucleus.s
-    // (wsm-os-target::Tag): Cons=0, Nil=1, Symbol=4.
-    const TAG_NIL: u64 = 1;
-    const SYM_T_WORD: u64 = 0xFFFF_FFFF_FFFF_FFFC; // (SYMBOL_ID_MAX << 3) | Tag::Symbol
+    use wsm_os_target::{CANONICAL_T, NIL};
 
     #[test]
     fn cons_car_cdr_roundtrip() {
@@ -84,8 +80,8 @@ mod tests {
     #[test]
     fn eq_matches_and_distinguishes() {
         unsafe {
-            assert_eq!(wsm_eq(core::ptr::null_mut(), 41, 41), SYM_T_WORD);
-            assert_eq!(wsm_eq(core::ptr::null_mut(), 41, 42), TAG_NIL);
+            assert_eq!(wsm_eq(core::ptr::null_mut(), 41, 41), CANONICAL_T);
+            assert_eq!(wsm_eq(core::ptr::null_mut(), 41, 42), NIL);
         }
     }
 
@@ -93,8 +89,8 @@ mod tests {
     fn atom_distinguishes_cons_from_non_cons() {
         unsafe {
             let pair = wsm_cons(core::ptr::null_mut(), 1, 2);
-            assert_eq!(wsm_atom(core::ptr::null_mut(), pair), TAG_NIL); // cons -> not atom
-            assert_eq!(wsm_atom(core::ptr::null_mut(), SYM_T_WORD), SYM_T_WORD); // symbol -> atom
+            assert_eq!(wsm_atom(core::ptr::null_mut(), pair), NIL); // cons -> not atom
+            assert_eq!(wsm_atom(core::ptr::null_mut(), CANONICAL_T), CANONICAL_T); // symbol -> atom
         }
     }
 }

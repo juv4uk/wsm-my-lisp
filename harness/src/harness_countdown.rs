@@ -10,6 +10,8 @@
 //! 2. Constant native stack frame ($112, %rsp) across 100,000 iterations
 //! 3. Observable result matches my-lisp semantic oracle: `done`
 
+use wsm_os_target::decode_symbol;
+
 core::arch::global_asm!(include_str!("../../asm/nucleus.s"), options(att_syntax));
 core::arch::global_asm!(include_str!("../../asm/entry-countdown-100k.s"), options(att_syntax));
 
@@ -18,10 +20,12 @@ unsafe extern "C" {
 }
 
 fn render_symbol(word: u64) -> String {
-    // Tag::Symbol = 4; CML assigns: done=1 (word 12 = (1<<3)|4).
-    match word >> 3 {
-        1 => "done".to_string(),
-        other => format!("<symbol {other}>"),
+    // У pinned CML artifact локальний symbol id `done` = 1. Формат Word
+    // декодує authoritative target-contract, а не локальна бітова маска.
+    match decode_symbol(word) {
+        Some(1) => "done".to_string(),
+        Some(other) => format!("<symbol {other}>"),
+        None => format!("<non-symbol word {word}>"),
     }
 }
 
@@ -29,7 +33,6 @@ fn main() {
     let ctx = core::ptr::null_mut();
     // Execute countdown from 100,000 to 0 on a single stack frame.
     let result = unsafe { wsm_entry(ctx) };
-    assert_eq!(result & 0b111, 4, "result must be a Tag::Symbol word (tag 4)");
     let symbol = render_symbol(result);
     assert_eq!(symbol, "done", "result must match oracle: done");
     println!("countdown 100000 -> {}", symbol);

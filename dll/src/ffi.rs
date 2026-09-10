@@ -172,7 +172,17 @@ fn eval_str(session: &mut Session, text: &str) -> String {
     };
     match eval::eval(word, &session.env, &session.symbols) {
         Ok(result) => value_to_string(result, &session.symbols),
-        Err(EvalError::UnknownSymbol(name)) => format!("error: unknown symbol: {name}"),
+        // Matches my-lisp's own exact trilingual UnknownSymbol text
+        // verbatim (docs/cyberpunk-host-dispatch-fixtures.md §4, quoting
+        // crates/my-lisp/src/eval/mod.rs, confirmed against a real run of
+        // their CLI, not from memory) -- their fixture doc explicitly
+        // offers matching on the `: <name>` suffix as an acceptable
+        // alternative for a minimal implementation, but matching verbatim
+        // costs nothing here and keeps this crate's error text directly
+        // comparable to my-lisp's own oracle output.
+        Err(EvalError::UnknownSymbol(name)) => {
+            format!("error: unknown symbol · nevidomyi symvol · unbekanntes Symbol: {name}")
+        }
         Err(EvalError::NotCallable) => "error: not callable".to_string(),
         Err(EvalError::CondFallthrough) => "error: cond: no clause matched".to_string(),
         Err(EvalError::HostPrimitiveFailed { name, message }) => {
@@ -229,7 +239,10 @@ mod tests {
             let bad_source = CString::new("(undefined-symbol)").unwrap();
             let err_ptr = wsm_eval_string(session, bad_source.as_ptr());
             let err = CStr::from_ptr(err_ptr).to_str().unwrap().to_string();
-            assert_eq!(err, "error: unknown symbol: undefined-symbol");
+            assert_eq!(
+                err,
+                "error: unknown symbol · nevidomyi symvol · unbekanntes Symbol: undefined-symbol"
+            );
             wsm_free_string(err_ptr);
 
             wsm_session_free(session);

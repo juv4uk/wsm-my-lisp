@@ -171,7 +171,7 @@ fn eval_cond(mut clauses: u64, env: &Env, symbols: &SymbolTable) -> Result<u64, 
 mod tests {
     use super::*;
     use crate::reader::read_one;
-    use crate::word::{decode_fixnum, SYM_T_WORD};
+    use crate::word::{decode_fixnum, encode_fixnum, SYM_T_WORD};
 
     #[test]
     fn fixnum_self_evaluates() {
@@ -230,6 +230,40 @@ mod tests {
                 name: "give-weapon".to_string(),
                 message: "unknown weapon id".to_string(),
             })
+        );
+    }
+
+    #[test]
+    fn nested_call_argument_evaluates_before_dispatch() {
+        // From my-lisp's own docs/cyberpunk-host-dispatch-fixtures.md §2
+        // (produced by running their real CLI, not written from memory):
+        // `(teleport player (+ x 10) 200 -10)` with player=42, x=5 evaluates
+        // to args `(42 15 200 -10)` -- the `(+ x 10)` argument (5+10=15)
+        // evaluates recursively before the outer primitive is invoked, not
+        // passed as a literal list.
+        let mut symbols = SymbolTable::new();
+        let mut env = Env::new();
+        env.bind("player", encode_fixnum(42));
+        env.bind("x", encode_fixnum(5));
+        env.register_primitive(
+            "+",
+            Box::new(|args: &[u64]| Ok(encode_fixnum(decode_fixnum(args[0]) + decode_fixnum(args[1])))),
+        );
+        let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let calls_clone = calls.clone();
+        env.register_primitive(
+            "teleport",
+            Box::new(move |args: &[u64]| {
+                calls_clone.borrow_mut().push(args.to_vec());
+                Ok(WORD_NIL)
+            }),
+        );
+        let word = read_one("(teleport player (+ x 10) 200 -10)", &mut symbols).unwrap();
+        eval(word, &env, &symbols).unwrap();
+        let recorded = calls.borrow();
+        assert_eq!(
+            recorded[0].iter().map(|&w| decode_fixnum(w)).collect::<Vec<_>>(),
+            vec![42, 15, 200, -10]
         );
     }
 

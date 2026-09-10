@@ -23,3 +23,17 @@ crate-type = ["cdylib", "rlib"]
 # this as a subprocess instead and checks its exit code/stderr.
 name = "oom-trigger"
 path = "src/bin/oom_trigger.rs"
+
+[[bin]]
+# Manual timing harness (std::time::Instant, no criterion/nightly
+# dependency) for wsm_eval_string, the FFI marshaling overhead specifically,
+# and BoxedTable growth. Run with --release: debug-profile numbers are not
+# representative of what a game process would actually see.
+name = "bench"
+path = "src/bin/bench.rs"
+
+[profile.release]
+# Keep debug info in release builds so a profiler could still symbolize
+# this bench binary if that's ever needed -- negligible cost for a small
+# crate like this.
+debug = true

@@ -120,3 +120,39 @@ my-lisp's own conformance fixtures) plus one real subprocess test
 (`tests/oom_path.rs`) that deliberately exhausts the 4096-byte arena and
 checks the resulting crash/exit path for real, rather than asserting it
 would probably work.
+
+## Performance -- the real limit is arena capacity, not speed
+
+`cargo run --release --bin bench --target x86_64-pc-windows-msvc -- all`
+runs `src/bin/bench.rs`, a manual `std::time::Instant` timing harness
+(no criterion/nightly dependency). Read that file's own header comment
+before trusting any number below out of context -- **the actual
+bottleneck this measured is not latency**:
+
+- `wsm_eval_string("(noop)")`, full FFI round trip: ~480 ns/call.
+- The same work called directly in Rust (no `CString`/`CStr`/
+  `catch_unwind` marshaling): ~365 ns/call -- so the FFI boundary itself
+  costs roughly ~115 ns/call (~25%) here, not the dominant cost.
+- `eval()` alone on an already-parsed word (no re-parsing text each
+  call): ~40 ns/call -- the reader, not the evaluator, is most of a
+  fresh `wsm_eval_string` call's cost (~325 ns/call of the ~365 ns
+  no-FFI figure).
+- `BoxedTable::add_string`/`get_string`: confirmed O(1) as the table
+  grows (measured at 100, 10,000, and 1,000,000 entries) -- lookups stay
+  at ~5-7 ns/call regardless of table size, as the `Vec`-index design
+  predicts, rather than assuming it.
+
+**But none of those numbers matter yet**, because `asm/nucleus-win64.s`'s
+arena (see "Threading" above) is a single global 4096-byte (256-cell)
+bump allocator that is **never reset, for the entire lifetime of the
+loaded DLL** -- not per-session, not reclaimable. A controlled
+measurement pinned the exact ceiling: `wsm_eval_string("(quote a)")` (a
+2-cons-cell expression, 32 bytes) succeeds for **exactly 128 calls**
+(4096 / 32 = 128, confirmed empirically, not computed and assumed) before
+the 129th call hits `wsm_fail_win64` and the whole process aborts. A
+real game session that ever issues more than roughly 128-256 total
+list-allocating Lisp commands across its entire lifetime -- not per
+frame, not per second, ever -- will hard-crash the same way. Making the
+interpreter faster does nothing for this; the arena itself needs to
+become reclaimable or substantially larger before per-call latency is
+the relevant question.

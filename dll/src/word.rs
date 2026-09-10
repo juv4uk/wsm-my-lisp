@@ -3,21 +3,36 @@
 //! TAG_BITS=3, PAYLOAD_BITS=61): Cons=0, Nil=1, True=2 (unused, see
 //! nucleus.s), Fixnum=3, Symbol=4, Closure=5, Capability=6.
 //!
-//! String literals: TENTATIVE, NOT an official part of wsm-target-contract
-//! yet. my-lisp confirmed (2026-09-10, reading crates/my-lisp/src/value.rs
-//! directly) strings are a distinct `Value::String(Rc<str>)` variant,
-//! structurally identical to `Value::Symbol(Rc<str>)` but semantically
-//! NOT interned (two equal string literals are independent allocations --
-//! my-lisp compares strings structurally via `equal?`, not by identity
-//! via `eq?`, unlike symbols). my-lisp also pointed out this crate's own
-//! `SymbolTable` (index-in-word, name in a side table) is already the
-//! right ABI pattern to reuse for strings, just without deduplication.
-//! `TAG_STRING = 7` here is this crate's own proposal (the only unused
-//! value TAG_BITS=3 leaves in wsm-os-target::Tag: Cons=0/Nil=1/True=2/
-//! Fixnum=3/Symbol=4/Closure=5/Capability=6) -- asked cml directly
-//! whether to reserve it in wsm-target-contract (the actual cross-repo
-//! ABI authority), not decided unilaterally. Do not treat TAG_STRING as
-//! canonical until that's confirmed.
+//! Boxed values (currently just String): TENTATIVE, NOT an official part
+//! of wsm-target-contract yet. my-lisp confirmed (2026-09-10, reading
+//! crates/my-lisp/src/value.rs directly) strings are a distinct
+//! `Value::String(Rc<str>)` variant, structurally identical to
+//! `Value::Symbol(Rc<str>)` but semantically NOT interned (two equal
+//! string literals are independent allocations -- my-lisp compares
+//! strings structurally via `equal?`, not by identity via `eq?`, unlike
+//! symbols).
+//!
+//! `TAG_BOXED = 7` (this crate's proposal, the only unused value
+//! TAG_BITS=3 leaves: Cons=0/Nil=1/True=2/Fixnum=3/Symbol=4/Closure=5/
+//! Capability=6) was originally going to be `TAG_STRING`, narrowly. cml
+//! reviewed that (2026-09-10, checking both their c_backend.rs and
+//! x86_freestanding.rs directly -- neither has any existing string-layout
+//! of their own to conflict with) and recommended generalizing it instead:
+//! rather than spend the ABI's last free 3-bit tag value on String
+//! specifically, use it as a generic "boxed/ref" tag, with the boxed
+//! object's own kind (String today, Vector/NumericBuffer later if ever
+//! needed -- cml's own review of my-lisp's Value enum found those are the
+//! only other variants shaped like this: variable-size blobs needing
+//! offset+length in a side table, not an inline payload; Rational/Bool/
+//! Macro don't need a primary tag at all by cml's analysis) carried as a
+//! discriminant inside the table entry itself, not encoded into the tag
+//! bits. This keeps TAG_BITS=3 viable for longer without a bigger,
+//! harder-to-reverse ABI change (widening TAG_BITS itself, which every
+//! consumer -- x86_freestanding.rs, asm/nucleus.s, any future FPGA-style
+//! word format -- would have to move on together). Still asked cml/
+//! wsm-target-contract to confirm the actual number, not decided
+//! unilaterally -- do not treat TAG_BOXED=7 as canonical until that's
+//! confirmed.
 
 pub const TAG_BITS: u64 = 3;
 pub const TAG_MASK: u64 = 7;
@@ -27,7 +42,7 @@ pub const TAG_FIXNUM: u64 = 3;
 pub const TAG_SYMBOL: u64 = 4;
 /// TENTATIVE -- see module doc above. Not yet reserved in
 /// wsm-target-contract; do not treat as a stable cross-repo ABI value.
-pub const TAG_STRING: u64 = 7;
+pub const TAG_BOXED: u64 = 7;
 
 pub const WORD_NIL: u64 = TAG_NIL;
 
@@ -105,33 +120,46 @@ impl SymbolTable {
     }
 }
 
-/// Per-evaluator string table (TENTATIVE, see this module's header):
-/// append-only, index-in-word (same pattern as `SymbolTable`), but
-/// deliberately NOT deduplicating -- my-lisp confirmed two equal string
-/// literals in one program are independent allocations, unlike symbols.
-#[derive(Default)]
-pub struct StringTable {
-    strings: Vec<String>,
+/// A boxed value's kind, carried inside the table entry itself (cml's
+/// recommendation -- see this module's header) rather than in the tag
+/// bits. Only `Str` exists today; this enum is exactly where a future
+/// `Vector`/`NumericBuffer` variant would be added, per cml's review,
+/// without needing a new primary tag or touching word encoding at all.
+pub enum BoxedValue {
+    Str(String),
 }
 
-impl StringTable {
+/// Per-evaluator boxed-value table (TENTATIVE, see this module's header):
+/// append-only, index-in-word (same pattern as `SymbolTable`), but
+/// deliberately NOT deduplicating strings -- my-lisp confirmed two equal
+/// string literals in one program are independent allocations, unlike
+/// symbols.
+#[derive(Default)]
+pub struct BoxedTable {
+    values: Vec<BoxedValue>,
+}
+
+impl BoxedTable {
     pub fn new() -> Self {
-        Self { strings: Vec::new() }
+        Self { values: Vec::new() }
     }
 
     /// Always allocates a new entry, even for a value equal to one
     /// already present -- no lookup/dedup, unlike `SymbolTable::intern`.
-    pub fn add(&mut self, value: String) -> u64 {
-        let index = self.strings.len() as u64;
-        self.strings.push(value);
-        (index << TAG_BITS) | TAG_STRING
+    pub fn add_string(&mut self, value: String) -> u64 {
+        let index = self.values.len() as u64;
+        self.values.push(BoxedValue::Str(value));
+        (index << TAG_BITS) | TAG_BOXED
     }
 
-    pub fn get(&self, word: u64) -> Option<&str> {
-        if tag_of(word) != TAG_STRING {
+    pub fn get_string(&self, word: u64) -> Option<&str> {
+        if tag_of(word) != TAG_BOXED {
             return None;
         }
         let index = (word >> TAG_BITS) as usize;
-        self.strings.get(index).map(|s| s.as_str())
+        match self.values.get(index) {
+            Some(BoxedValue::Str(s)) => Some(s.as_str()),
+            None => None,
+        }
     }
 }

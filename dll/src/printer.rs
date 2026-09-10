@@ -2,7 +2,7 @@
 //! evaluation results back in the game's console. Independent of the
 //! (now-resolved, see eval.rs's module doc) cond/bindings questions --
 //! printing a value never depended on those. String printing depends on
-//! the still-TENTATIVE TAG_STRING (word.rs's module doc), so it's marked
+//! the still-TENTATIVE TAG_BOXED (word.rs's module doc), so it's marked
 //! as such below too.
 //!
 //! Same narrow scope as reader.rs: Fixnum, Nil (`()`), Symbol (including
@@ -10,17 +10,17 @@
 //! `(a . b)` since the underlying representation can express them even
 //! though reader.rs doesn't parse that syntax on input yet.
 
-use crate::word::{tag_of, StringTable, SymbolTable, TAG_CONS, TAG_FIXNUM, TAG_NIL, TAG_STRING, TAG_SYMBOL};
+use crate::word::{tag_of, BoxedTable, SymbolTable, TAG_CONS, TAG_FIXNUM, TAG_NIL, TAG_BOXED, TAG_SYMBOL};
 use crate::{wsm_car, wsm_cdr};
 use std::fmt::Write as _;
 
-pub fn value_to_string(word: u64, symbols: &SymbolTable, strings: &StringTable) -> String {
+pub fn value_to_string(word: u64, symbols: &SymbolTable, strings: &BoxedTable) -> String {
     let mut out = String::new();
     write_value(word, symbols, strings, &mut out);
     out
 }
 
-fn write_value(word: u64, symbols: &SymbolTable, strings: &StringTable, out: &mut String) {
+fn write_value(word: u64, symbols: &SymbolTable, strings: &BoxedTable, out: &mut String) {
     match tag_of(word) {
         TAG_NIL => out.push_str("()"),
         TAG_FIXNUM => {
@@ -36,7 +36,7 @@ fn write_value(word: u64, symbols: &SymbolTable, strings: &StringTable, out: &mu
         // Quoting is intentionally naive (wrap in `"`, no internal-quote
         // escaping on output) -- matches reader.rs's own minimal escaping,
         // not a general string-literal printer.
-        TAG_STRING => match strings.get(word) {
+        TAG_BOXED => match strings.get_string(word) {
             Some(s) => {
                 out.push('"');
                 out.push_str(s);
@@ -53,7 +53,7 @@ fn write_value(word: u64, symbols: &SymbolTable, strings: &StringTable, out: &mu
     }
 }
 
-fn write_list(word: u64, symbols: &SymbolTable, strings: &StringTable, out: &mut String) {
+fn write_list(word: u64, symbols: &SymbolTable, strings: &BoxedTable, out: &mut String) {
     out.push('(');
     let mut current = word;
     let mut first = true;
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn prints_fixnum() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("42", &mut symbols, &mut strings).unwrap();
         assert_eq!(value_to_string(word, &symbols, &strings), "42");
     }
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn prints_negative_fixnum() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("-10", &mut symbols, &mut strings).unwrap();
         assert_eq!(value_to_string(word, &symbols, &strings), "-10");
     }
@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn prints_nil() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("()", &mut symbols, &mut strings).unwrap();
         assert_eq!(value_to_string(word, &symbols, &strings), "()");
     }
@@ -115,7 +115,7 @@ mod tests {
     #[test]
     fn prints_symbol_and_t() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let sym = read_one("player", &mut symbols, &mut strings).unwrap();
         assert_eq!(value_to_string(sym, &symbols, &strings), "player");
         let t = read_one("t", &mut symbols, &mut strings).unwrap();
@@ -125,7 +125,7 @@ mod tests {
     #[test]
     fn prints_list_round_trip() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("(teleport player 100 200 50)", &mut symbols, &mut strings).unwrap();
         assert_eq!(value_to_string(word, &symbols, &strings), "(teleport player 100 200 50)");
     }
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn prints_dotted_pair() {
         let symbols = SymbolTable::new();
-        let strings = StringTable::new();
+        let strings = BoxedTable::new();
         let pair = unsafe {
             crate::wsm_cons(core::ptr::null_mut(), crate::word::encode_fixnum(1), crate::word::encode_fixnum(2))
         };
@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn prints_string_literal_with_quotes() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one(r#"(дай-зброю "пістолет" 5)"#, &mut symbols, &mut strings).unwrap();
         assert_eq!(value_to_string(word, &symbols, &strings), r#"(дай-зброю "пістолет" 5)"#);
     }

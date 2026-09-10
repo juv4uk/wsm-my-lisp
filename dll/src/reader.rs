@@ -9,11 +9,11 @@
 //!   - dotted-pair literals in input
 //!
 //! String literals (`"..."`) are TENTATIVE -- see word.rs's module doc
-//! for the full status (TAG_STRING isn't yet reserved in
+//! for the full status (TAG_BOXED isn't yet reserved in
 //! wsm-target-contract). Escaping is minimal: `\"` and `\\` only, no
 //! `\n`/unicode escapes -- none of my-lisp's fixtures needed them.
 
-use crate::word::{encode_fixnum, StringTable, SymbolTable, WORD_NIL};
+use crate::word::{encode_fixnum, BoxedTable, SymbolTable, WORD_NIL};
 use crate::wsm_cons;
 
 #[derive(Debug, PartialEq)]
@@ -102,7 +102,7 @@ fn atom_to_word(atom: &str, symbols: &mut SymbolTable) -> u64 {
 /// and adding string literals to `strings`. Errors on trailing input after
 /// the first form (a one-shot console command is exactly one form),
 /// unbalanced parens, and unterminated string literals.
-pub fn read_one(source: &str, symbols: &mut SymbolTable, strings: &mut StringTable) -> Result<u64, ReadError> {
+pub fn read_one(source: &str, symbols: &mut SymbolTable, strings: &mut BoxedTable) -> Result<u64, ReadError> {
     let tokens = tokenize(source)?;
     let mut pos = 0;
     let word = parse_form(&tokens, &mut pos, symbols, strings)?;
@@ -125,7 +125,7 @@ fn parse_form(
     tokens: &[Token],
     pos: &mut usize,
     symbols: &mut SymbolTable,
-    strings: &mut StringTable,
+    strings: &mut BoxedTable,
 ) -> Result<u64, ReadError> {
     match tokens.get(*pos) {
         None => Err(ReadError::UnexpectedEof),
@@ -136,7 +136,7 @@ fn parse_form(
             Ok(word)
         }
         Some(Token::Str(s)) => {
-            let word = strings.add(s.clone());
+            let word = strings.add_string(s.clone());
             *pos += 1;
             Ok(word)
         }
@@ -151,7 +151,7 @@ fn parse_list(
     tokens: &[Token],
     pos: &mut usize,
     symbols: &mut SymbolTable,
-    strings: &mut StringTable,
+    strings: &mut BoxedTable,
 ) -> Result<u64, ReadError> {
     match tokens.get(*pos) {
         None => Err(ReadError::UnexpectedEof),
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn reads_bare_fixnum() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("42", &mut symbols, &mut strings).unwrap();
         assert_eq!(decode_fixnum(word), 42);
     }
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn reads_negative_fixnum() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("-10", &mut symbols, &mut strings).unwrap();
         assert_eq!(decode_fixnum(word), -10);
     }
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn reads_empty_call() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("(save-game)", &mut symbols, &mut strings).unwrap();
         let head = unsafe { wsm_car(core::ptr::null_mut(), word) };
         let tail = unsafe { wsm_cdr(core::ptr::null_mut(), word) };
@@ -203,7 +203,7 @@ mod tests {
     #[test]
     fn reads_teleport_call() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("(teleport player 100 200 50)", &mut symbols, &mut strings).unwrap();
         // Walk the list: (teleport . (player . (100 . (200 . (50 . ())))))
         let head = unsafe { wsm_car(core::ptr::null_mut(), word) };
@@ -224,7 +224,7 @@ mod tests {
         // Rust's UTF-8-aware `chars()`), so Cyrillic identifiers were never
         // a special case to add, just something to actually verify.
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one("(телепортуй гравець 100 200 50)", &mut symbols, &mut strings).unwrap();
         let head = unsafe { wsm_car(core::ptr::null_mut(), word) };
         assert_eq!(symbols.name_of(head), Some("телепортуй"));
@@ -238,11 +238,11 @@ mod tests {
         // From my-lisp's docs/cyberpunk-host-dispatch-fixtures.md §1:
         // `(дай-зброю "пістолет" 5)`.
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one(r#"(дай-зброю "пістолет" 5)"#, &mut symbols, &mut strings).unwrap();
         let rest = unsafe { wsm_cdr(core::ptr::null_mut(), word) };
         let arg1 = unsafe { wsm_car(core::ptr::null_mut(), rest) };
-        assert_eq!(strings.get(arg1), Some("пістолет"));
+        assert_eq!(strings.get_string(arg1), Some("пістолет"));
     }
 
     #[test]
@@ -250,21 +250,21 @@ mod tests {
         // my-lisp confirmed strings are NOT interned, unlike symbols --
         // two textually-equal literals must not collapse to the same word.
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let word = read_one(r#"(f "x" "x")"#, &mut symbols, &mut strings).unwrap();
         let rest = unsafe { wsm_cdr(core::ptr::null_mut(), word) };
         let arg1 = unsafe { wsm_car(core::ptr::null_mut(), rest) };
         let rest2 = unsafe { wsm_cdr(core::ptr::null_mut(), rest) };
         let arg2 = unsafe { wsm_car(core::ptr::null_mut(), rest2) };
         assert_ne!(arg1, arg2, "two equal string literals must not share a word");
-        assert_eq!(strings.get(arg1), Some("x"));
-        assert_eq!(strings.get(arg2), Some("x"));
+        assert_eq!(strings.get_string(arg1), Some("x"));
+        assert_eq!(strings.get_string(arg2), Some("x"));
     }
 
     #[test]
     fn rejects_unterminated_string() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let err = read_one(r#"(f "unterminated)"#, &mut symbols, &mut strings).unwrap_err();
         assert_eq!(err, ReadError::UnterminatedString);
     }
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn rejects_trailing_input() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let err = read_one("42 43", &mut symbols, &mut strings).unwrap_err();
         assert!(matches!(err, ReadError::TrailingInput(_)));
     }
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn rejects_unbalanced_close_paren() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let err = read_one(")", &mut symbols, &mut strings).unwrap_err();
         assert_eq!(err, ReadError::UnexpectedCloseParen);
     }

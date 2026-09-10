@@ -8,7 +8,7 @@
 //!
 //! cond and bare-symbol bindings were both confirmed by my-lisp (see
 //! eval.rs's module doc); string encoding is implemented here too now
-//! (TAG_STRING + StringTable, see word.rs's module doc) but remains
+//! (TAG_BOXED + BoxedTable, see word.rs's module doc) but remains
 //! TENTATIVE -- not yet reserved in wsm-target-contract. Host primitives
 //! here operate on raw Word (u64) values, not resolved types -- the C
 //! caller is responsible for knowing what tag it is passing/expecting,
@@ -46,7 +46,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::eval::{self, Env, EvalError};
 use crate::printer::value_to_string;
 use crate::reader::{self, ReadError};
-use crate::word::{StringTable, SymbolTable};
+use crate::word::{BoxedTable, SymbolTable};
 
 pub struct Session {
     env: Env,
@@ -54,7 +54,7 @@ pub struct Session {
     /// TENTATIVE -- see word.rs's module doc. Threaded through here so
     /// string literals in wsm_eval_string's input actually work end to
     /// end, not just in reader.rs/printer.rs's own unit tests.
-    strings: StringTable,
+    strings: BoxedTable,
 }
 
 /// C-callable host primitive: receives `argc` already-evaluated Word
@@ -65,7 +65,7 @@ pub type HostPrimitiveFn = unsafe extern "C" fn(argc: usize, argv: *const u64, o
 
 #[unsafe(no_mangle)]
 pub extern "C" fn wsm_session_init() -> *mut Session {
-    Box::into_raw(Box::new(Session { env: Env::new(), symbols: SymbolTable::new(), strings: StringTable::new() }))
+    Box::into_raw(Box::new(Session { env: Env::new(), symbols: SymbolTable::new(), strings: BoxedTable::new() }))
 }
 
 /// # Safety

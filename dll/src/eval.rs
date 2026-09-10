@@ -27,16 +27,16 @@
 //!   deviation from my-lisp semantics and would need to be flagged as
 //!   such explicitly -- not the case here.)
 //!
-//! String literals (TAG_STRING) are TENTATIVE -- see word.rs's module doc
+//! String literals (TAG_BOXED) are TENTATIVE -- see word.rs's module doc
 //! for the full status (not yet reserved in wsm-target-contract). This
-//! file doesn't need a StringTable parameter at all, though: a string
+//! file doesn't need a BoxedTable parameter at all, though: a string
 //! word self-evaluates exactly like a Fixnum or Nil word (no lookup
 //! needed to know what it is), so the only change here is adding
-//! TAG_STRING to `eval`'s self-evaluating match arm.
+//! TAG_BOXED to `eval`'s self-evaluating match arm.
 
 use std::collections::HashMap;
 
-use crate::word::{is_truthy, tag_of, SymbolTable, TAG_CONS, TAG_FIXNUM, TAG_NIL, TAG_STRING, TAG_SYMBOL, WORD_NIL};
+use crate::word::{is_truthy, tag_of, SymbolTable, TAG_CONS, TAG_FIXNUM, TAG_NIL, TAG_BOXED, TAG_SYMBOL, WORD_NIL};
 use crate::{wsm_car, wsm_cdr};
 
 #[derive(Debug, PartialEq)]
@@ -90,7 +90,7 @@ impl Env {
 
 pub fn eval(word: u64, env: &Env, symbols: &SymbolTable) -> Result<u64, EvalError> {
     match tag_of(word) {
-        TAG_FIXNUM | TAG_NIL | TAG_STRING => Ok(word), // self-evaluating
+        TAG_FIXNUM | TAG_NIL | TAG_BOXED => Ok(word), // self-evaluating
         TAG_SYMBOL => eval_symbol(word, env, symbols),
         TAG_CONS => eval_list(word, env, symbols),
         _ => Ok(word), // Closure/Capability: out of scope, pass through unevaluated
@@ -168,12 +168,12 @@ fn eval_cond(mut clauses: u64, env: &Env, symbols: &SymbolTable) -> Result<u64, 
 mod tests {
     use super::*;
     use crate::reader::read_one;
-    use crate::word::{decode_fixnum, encode_fixnum, StringTable, SYM_T_WORD};
+    use crate::word::{decode_fixnum, encode_fixnum, BoxedTable, SYM_T_WORD};
 
     #[test]
     fn fixnum_self_evaluates() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let env = Env::new();
         let word = read_one("42", &mut symbols, &mut strings).unwrap();
         assert_eq!(decode_fixnum(eval(word, &env, &symbols).unwrap()), 42);
@@ -182,18 +182,18 @@ mod tests {
     #[test]
     fn string_self_evaluates() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let env = Env::new();
         let word = read_one(r#""пістолет""#, &mut symbols, &mut strings).unwrap();
         let result = eval(word, &env, &symbols).unwrap();
         assert_eq!(result, word); // self-evaluating: same word in, same word out
-        assert_eq!(strings.get(result), Some("пістолет"));
+        assert_eq!(strings.get_string(result), Some("пістолет"));
     }
 
     #[test]
     fn unbound_symbol_errors() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let env = Env::new();
         let word = read_one("(undefined-symbol)", &mut symbols, &mut strings).unwrap();
         assert_eq!(
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn dispatches_to_host_primitive_with_evaluated_args() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let mut env = Env::new();
         env.bind("player", symbols.intern("player-handle")); // placeholder binding
         let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
@@ -231,7 +231,7 @@ mod tests {
         // From my-lisp's docs/cyberpunk-host-dispatch-fixtures.md §2:
         // `(дай-зброю "пістолет" 5)` -> evaluated args `("пістолет" 5)`.
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let mut env = Env::new();
         let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
         let calls_clone = calls.clone();
@@ -245,14 +245,14 @@ mod tests {
         let word = read_one(r#"(дай-зброю "пістолет" 5)"#, &mut symbols, &mut strings).unwrap();
         eval(word, &env, &symbols).unwrap();
         let recorded = calls.borrow();
-        assert_eq!(strings.get(recorded[0][0]), Some("пістолет"));
+        assert_eq!(strings.get_string(recorded[0][0]), Some("пістолет"));
         assert_eq!(decode_fixnum(recorded[0][1]), 5);
     }
 
     #[test]
     fn host_primitive_failure_surfaces_as_eval_error() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let mut env = Env::new();
         env.register_primitive(
             "дай-зброю",
@@ -277,7 +277,7 @@ mod tests {
         // evaluates recursively before the outer primitive is invoked, not
         // passed as a literal list.
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let mut env = Env::new();
         env.bind("player", encode_fixnum(42));
         env.bind("x", encode_fixnum(5));
@@ -311,7 +311,7 @@ mod tests {
         // just proving the evaluator dispatches on them identically, not
         // only on ASCII symbol names.
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let mut env = Env::new();
         env.bind("гравець", symbols.intern("гравець-handle"));
         let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn cond_skips_falsy_and_picks_first_truthy() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let env = Env::new();
         let word = read_one("(cond (() 1) (() 2) (t 3))", &mut symbols, &mut strings).unwrap();
         assert_eq!(decode_fixnum(eval(word, &env, &symbols).unwrap()), 3);
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn cond_treats_fixnum_zero_as_truthy() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let env = Env::new();
         let word = read_one("(cond (0 1) (t 2))", &mut symbols, &mut strings).unwrap();
         assert_eq!(decode_fixnum(eval(word, &env, &symbols).unwrap()), 1);
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn t_self_evaluates() {
         let mut symbols = SymbolTable::new();
-        let mut strings = StringTable::new();
+        let mut strings = BoxedTable::new();
         let env = Env::new();
         let word = read_one("t", &mut symbols, &mut strings).unwrap();
         assert_eq!(eval(word, &env, &symbols).unwrap(), SYM_T_WORD);

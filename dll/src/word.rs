@@ -3,16 +3,31 @@
 //! TAG_BITS=3, PAYLOAD_BITS=61): Cons=0, Nil=1, True=2 (unused, see
 //! nucleus.s), Fixnum=3, Symbol=4, Closure=5, Capability=6.
 //!
-//! String literals are NOT part of this encoding -- wsm-os-target::Tag has
-//! no String variant, and no fixture seen so far says how one should be
-//! represented. reader.rs therefore does not parse quoted strings yet;
-//! that is an open question for my-lisp to confirm, not a guess made here.
+//! String literals: TENTATIVE, NOT an official part of wsm-target-contract
+//! yet. my-lisp confirmed (2026-09-10, reading crates/my-lisp/src/value.rs
+//! directly) strings are a distinct `Value::String(Rc<str>)` variant,
+//! structurally identical to `Value::Symbol(Rc<str>)` but semantically
+//! NOT interned (two equal string literals are independent allocations --
+//! my-lisp compares strings structurally via `equal?`, not by identity
+//! via `eq?`, unlike symbols). my-lisp also pointed out this crate's own
+//! `SymbolTable` (index-in-word, name in a side table) is already the
+//! right ABI pattern to reuse for strings, just without deduplication.
+//! `TAG_STRING = 7` here is this crate's own proposal (the only unused
+//! value TAG_BITS=3 leaves in wsm-os-target::Tag: Cons=0/Nil=1/True=2/
+//! Fixnum=3/Symbol=4/Closure=5/Capability=6) -- asked cml directly
+//! whether to reserve it in wsm-target-contract (the actual cross-repo
+//! ABI authority), not decided unilaterally. Do not treat TAG_STRING as
+//! canonical until that's confirmed.
 
+pub const TAG_BITS: u64 = 3;
 pub const TAG_MASK: u64 = 7;
 pub const TAG_CONS: u64 = 0;
 pub const TAG_NIL: u64 = 1;
 pub const TAG_FIXNUM: u64 = 3;
 pub const TAG_SYMBOL: u64 = 4;
+/// TENTATIVE -- see module doc above. Not yet reserved in
+/// wsm-target-contract; do not treat as a stable cross-repo ABI value.
+pub const TAG_STRING: u64 = 7;
 
 pub const WORD_NIL: u64 = TAG_NIL;
 
@@ -87,5 +102,36 @@ impl SymbolTable {
             .iter()
             .find(|&(_, &v)| v == id)
             .map(|(k, _)| k.as_str())
+    }
+}
+
+/// Per-evaluator string table (TENTATIVE, see this module's header):
+/// append-only, index-in-word (same pattern as `SymbolTable`), but
+/// deliberately NOT deduplicating -- my-lisp confirmed two equal string
+/// literals in one program are independent allocations, unlike symbols.
+#[derive(Default)]
+pub struct StringTable {
+    strings: Vec<String>,
+}
+
+impl StringTable {
+    pub fn new() -> Self {
+        Self { strings: Vec::new() }
+    }
+
+    /// Always allocates a new entry, even for a value equal to one
+    /// already present -- no lookup/dedup, unlike `SymbolTable::intern`.
+    pub fn add(&mut self, value: String) -> u64 {
+        let index = self.strings.len() as u64;
+        self.strings.push(value);
+        (index << TAG_BITS) | TAG_STRING
+    }
+
+    pub fn get(&self, word: u64) -> Option<&str> {
+        if tag_of(word) != TAG_STRING {
+            return None;
+        }
+        let index = (word >> TAG_BITS) as usize;
+        self.strings.get(index).map(|s| s.as_str())
     }
 }

@@ -6,13 +6,13 @@
 //! than `wsm_init`/a bare handle type, kept explicit about being a Session
 //! (Env + SymbolTable pair) rather than the whole nucleus.
 //!
-//! Independent of the 3 open questions still pending from my-lisp (cond
-//! special-form-vs-macro, bare-symbol bindings convention, string
-//! encoding): this plumbing works the same regardless of how those get
-//! resolved, since it only marshals C ABI <-> the existing Env/SymbolTable
-//! types. Host primitives here operate on raw Word (u64) values, not
-//! resolved types -- the C caller is responsible for knowing what tag it
-//! is passing/expecting, same as nucleus.s's own callers already are.
+//! cond and bare-symbol bindings were both confirmed by my-lisp (see
+//! eval.rs's module doc); string encoding is implemented here too now
+//! (TAG_STRING + StringTable, see word.rs's module doc) but remains
+//! TENTATIVE -- not yet reserved in wsm-target-contract. Host primitives
+//! here operate on raw Word (u64) values, not resolved types -- the C
+//! caller is responsible for knowing what tag it is passing/expecting,
+//! same as nucleus.s's own callers already are.
 //!
 //! Safety: every `#[no_mangle] pub extern "C" fn` here is a boundary
 //! function -- it trusts its raw-pointer arguments are valid for the
@@ -46,11 +46,15 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::eval::{self, Env, EvalError};
 use crate::printer::value_to_string;
 use crate::reader::{self, ReadError};
-use crate::word::SymbolTable;
+use crate::word::{StringTable, SymbolTable};
 
 pub struct Session {
     env: Env,
     symbols: SymbolTable,
+    /// TENTATIVE -- see word.rs's module doc. Threaded through here so
+    /// string literals in wsm_eval_string's input actually work end to
+    /// end, not just in reader.rs/printer.rs's own unit tests.
+    strings: StringTable,
 }
 
 /// C-callable host primitive: receives `argc` already-evaluated Word
@@ -61,7 +65,7 @@ pub type HostPrimitiveFn = unsafe extern "C" fn(argc: usize, argv: *const u64, o
 
 #[unsafe(no_mangle)]
 pub extern "C" fn wsm_session_init() -> *mut Session {
-    Box::into_raw(Box::new(Session { env: Env::new(), symbols: SymbolTable::new() }))
+    Box::into_raw(Box::new(Session { env: Env::new(), symbols: SymbolTable::new(), strings: StringTable::new() }))
 }
 
 /// # Safety
@@ -164,14 +168,15 @@ pub unsafe extern "C" fn wsm_eval_string(session: *mut Session, source: *const c
 }
 
 fn eval_str(session: &mut Session, text: &str) -> String {
-    let word = match reader::read_one(text, &mut session.symbols) {
+    let word = match reader::read_one(text, &mut session.symbols, &mut session.strings) {
         Ok(w) => w,
         Err(ReadError::UnexpectedEof) => return "error: unexpected end of input".to_string(),
         Err(ReadError::UnexpectedCloseParen) => return "error: unexpected ')'".to_string(),
+        Err(ReadError::UnterminatedString) => return "error: unterminated string literal".to_string(),
         Err(ReadError::TrailingInput(rest)) => return format!("error: trailing input: {rest}"),
     };
     match eval::eval(word, &session.env, &session.symbols) {
-        Ok(result) => value_to_string(result, &session.symbols),
+        Ok(result) => value_to_string(result, &session.symbols, &session.strings),
         // Matches my-lisp's own exact trilingual UnknownSymbol text
         // verbatim (docs/cyberpunk-host-dispatch-fixtures.md §4, quoting
         // crates/my-lisp/src/eval/mod.rs, confirmed against a real run of
@@ -245,6 +250,19 @@ mod tests {
             );
             wsm_free_string(err_ptr);
 
+            wsm_session_free(session);
+        }
+    }
+
+    #[test]
+    fn string_literal_round_trips_through_eval_string() {
+        unsafe {
+            let session = wsm_session_init();
+            let source = CString::new(r#""pistol""#).unwrap();
+            let result_ptr = wsm_eval_string(session, source.as_ptr());
+            let result = CStr::from_ptr(result_ptr).to_str().unwrap().to_string();
+            assert_eq!(result, r#""pistol""#); // self-evaluates, prints with quotes
+            wsm_free_string(result_ptr);
             wsm_session_free(session);
         }
     }

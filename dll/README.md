@@ -33,8 +33,9 @@ the test suite, it does **not** make the arena itself thread-safe.
 
 **Rule for any embedder**: call every `wsm_*` function in this crate's
 FFI surface (`wsm_session_init`, `wsm_register_primitive`, `wsm_bind`,
-`wsm_eval_string`, `wsm_session_free`, and any host-registered
-`HostPrimitiveFn` callback) from **one thread only**, for the lifetime of
+`wsm_eval_string`, `wsm_wrap_game_handle`, `wsm_unwrap_game_handle`,
+`wsm_session_free`, and any host-registered `HostPrimitiveFn` callback)
+from **one thread only**, for the lifetime of
 a given `Session`. Calling from multiple threads concurrently, even with
 external synchronization around individual calls, does not make this
 safe: the arena has no memory ordering guarantees across threads at all.
@@ -51,15 +52,23 @@ either a locked arena or a per-thread/per-session arena in
 - Every other `wsm_*` function taking a `Session*` requires a live,
   not-yet-freed session pointer from `wsm_session_init`.
 - A `Session` owns its own `Env` (host primitive/binding registry),
-  `SymbolTable`, and `BoxedTable` (boxed/string values) --
+  `SymbolTable`, and `BoxedTable` (`Str`/`GameHandle` boxed values) --
   **session-local**, not shared or image-local. This matches
   `wsm-target-contract`'s ratified scope for `Tag::Boxed` handles (see
-  `docs/migration-2026-09-10-boxed-tag.md` in that repo): a boxed handle
-  is only meaningful within the session that created it, never across
-  sessions or processes.
+  `docs/migration-2026-09-10-boxed-tag.md` and
+  `docs/migration-2026-09-10-game-handle-boxed-kind.md` in that repo): a
+  boxed handle is only meaningful within the session that created it,
+  never across sessions or processes.
 - A string returned by `wsm_eval_string` is heap-allocated by this crate
   (`CString::into_raw`) and must be freed with `wsm_free_string` --
   exactly once, never with a foreign `free`/`delete`.
+- `wsm_wrap_game_handle(session, handle, &mut out)` stores an opaque
+  host pointer (e.g. a RED4ext RTTI handle) into the session's boxed
+  table and writes the resulting Word to `out`; this crate never
+  dereferences `handle`. `wsm_unwrap_game_handle(session, word, &mut out)`
+  recovers it -- returns 1 (not a crash) if `word` isn't a `GameHandle`
+  Boxed word. The caller is solely responsible for the wrapped pointer's
+  validity for as long as any Lisp value might still reference it.
 
 ### Panics across the FFI boundary
 
@@ -87,8 +96,9 @@ See `word.rs`'s own module doc for the full, current tag layout. In
 short: `Cons`/`Nil`/`Fixnum`/`Symbol`/`Closure`/`Capability`/`Boxed`
 come from `wsm_os_target::Tag` (a pinned git dependency on
 `wsm-target-contract`, not a hand-copied constant) -- `Boxed` (string
-literals today) is session-local and non-interned, everything else
-follows that crate's own documented semantics.
+literals and opaque game handles, via `BoxedValue::Str`/`GameHandle`) is
+session-local and non-interned, everything else follows that crate's own
+documented semantics.
 
 ## Testing
 
@@ -96,7 +106,9 @@ follows that crate's own documented semantics.
 cargo test --target x86_64-pc-windows-msvc
 ```
 
-36 tests total: 35 in-process unit/integration tests plus one real
-subprocess test (`tests/oom_path.rs`) that deliberately exhausts the
-4096-byte arena and checks the resulting crash/exit path for real,
-rather than asserting it would probably work.
+50 tests total: 49 in-process unit/integration tests (including
+`tests/my_lisp_fixture_parity.rs`, a consolidated parity harness against
+my-lisp's own conformance fixtures) plus one real subprocess test
+(`tests/oom_path.rs`) that deliberately exhausts the 4096-byte arena and
+checks the resulting crash/exit path for real, rather than asserting it
+would probably work.

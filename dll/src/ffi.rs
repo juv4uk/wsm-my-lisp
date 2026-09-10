@@ -51,10 +51,13 @@ use crate::word::{BoxedTable, SymbolTable};
 pub struct Session {
     env: Env,
     symbols: SymbolTable,
-    /// TENTATIVE -- see word.rs's module doc. Threaded through here so
-    /// string literals in wsm_eval_string's input actually work end to
-    /// end, not just in reader.rs/printer.rs's own unit tests.
-    strings: BoxedTable,
+    /// Ratified -- see word.rs's module doc. Renamed from `strings` to
+    /// `boxed` (2026-09-10) once it stopped being String-only:
+    /// `BoxedValue::GameHandle` is now the second kind it carries.
+    /// Threaded through here so both string literals in
+    /// `wsm_eval_string`'s input and `wsm_wrap_game_handle`'s handles
+    /// work end to end, not just in unit tests.
+    boxed: BoxedTable,
 }
 
 /// C-callable host primitive: receives `argc` already-evaluated Word
@@ -65,7 +68,7 @@ pub type HostPrimitiveFn = unsafe extern "C" fn(argc: usize, argv: *const u64, o
 
 #[unsafe(no_mangle)]
 pub extern "C" fn wsm_session_init() -> *mut Session {
-    Box::into_raw(Box::new(Session { env: Env::new(), symbols: SymbolTable::new(), strings: BoxedTable::new() }))
+    Box::into_raw(Box::new(Session { env: Env::new(), symbols: SymbolTable::new(), boxed: BoxedTable::new() }))
 }
 
 /// # Safety
@@ -168,7 +171,7 @@ pub unsafe extern "C" fn wsm_eval_string(session: *mut Session, source: *const c
 }
 
 fn eval_str(session: &mut Session, text: &str) -> String {
-    let word = match reader::read_one(text, &mut session.symbols, &mut session.strings) {
+    let word = match reader::read_one(text, &mut session.symbols, &mut session.boxed) {
         Ok(w) => w,
         Err(ReadError::UnexpectedEof) => return "error: unexpected end of input".to_string(),
         Err(ReadError::UnexpectedCloseParen) => return "error: unexpected ')'".to_string(),
@@ -176,7 +179,7 @@ fn eval_str(session: &mut Session, text: &str) -> String {
         Err(ReadError::TrailingInput(rest)) => return format!("error: trailing input: {rest}"),
     };
     match eval::eval(word, &session.env, &session.symbols) {
-        Ok(result) => value_to_string(result, &session.symbols, &session.strings),
+        Ok(result) => value_to_string(result, &session.symbols, &session.boxed),
         // Matches my-lisp's own exact trilingual UnknownSymbol text
         // verbatim (docs/cyberpunk-host-dispatch-fixtures.md §4, quoting
         // crates/my-lisp/src/eval/mod.rs, confirmed against a real run of
@@ -205,6 +208,79 @@ pub unsafe extern "C" fn wsm_free_string(s: *mut c_char) {
         return;
     }
     drop(unsafe { CString::from_raw(s) });
+}
+
+/// Wraps an opaque host (e.g. RED4ext RTTI) handle into a `Boxed` Word a
+/// Lisp expression can carry and pass back to a later host primitive --
+/// per `wsm-target-contract#2`'s ratification (contract v4,
+/// `docs/migration-2026-09-10-game-handle-boxed-kind.md`):
+/// `BoxedValue::GameHandle`, session-local, never dereferenced on this
+/// side. `handle` is stored and returned verbatim by `wsm_unwrap_game_handle`
+/// -- this function does not validate, dereference, or interpret it in
+/// any way; the caller is solely responsible for `handle`'s validity for
+/// as long as the returned Word might still be unwrapped.
+///
+/// Writes the encoded Word to `*out` and returns 0 on success. Returns
+/// -1 for a null `session` or `out` pointer, -2 if a panic was caught
+/// (see this module's own unwind-safety doc).
+///
+/// # Safety
+/// `session` must be a live pointer from `wsm_session_init`. `out` must
+/// be a valid, writable `u64` for the duration of this call. `handle` is
+/// opaque to this function and imposes no safety requirement of its own
+/// here (it is never dereferenced) -- but see the caller-responsibility
+/// note above for what `wsm_unwrap_game_handle` will later require.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wsm_wrap_game_handle(
+    session: *mut Session,
+    handle: *mut core::ffi::c_void,
+    out: *mut u64,
+) -> i32 {
+    if session.is_null() || out.is_null() {
+        return -1;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let session = unsafe { &mut *session };
+        let word = session.boxed.add_game_handle(handle);
+        unsafe { *out = word };
+        0
+    }));
+    result.unwrap_or(-2)
+}
+
+/// Recovers the opaque host handle a `Boxed` Word (produced by
+/// `wsm_wrap_game_handle`) carries. Writes the handle to `*out` and
+/// returns 0 on success; returns 1 (not 0/-1/-2, deliberately distinct
+/// from this file's other error codes) if `word` is not a `GameHandle`
+/// -- e.g. it decodes to a `Str` Boxed value instead, or isn't a `Boxed`
+/// word at all -- a caller-diagnosable "wrong kind" outcome, not a
+/// crash. Returns -1 for a null `session`/`out` pointer, -2 on a caught
+/// panic.
+///
+/// # Safety
+/// `session` must be a live pointer from `wsm_session_init`. `out` must
+/// be a valid, writable pointer for a `*mut c_void` for the duration of
+/// this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wsm_unwrap_game_handle(
+    session: *mut Session,
+    word: u64,
+    out: *mut *mut core::ffi::c_void,
+) -> i32 {
+    if session.is_null() || out.is_null() {
+        return -1;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let session = unsafe { &mut *session };
+        match session.boxed.get_game_handle(word) {
+            Some(handle) => {
+                unsafe { *out = handle };
+                0
+            }
+            None => 1,
+        }
+    }));
+    result.unwrap_or(-2)
 }
 
 #[cfg(test)]
@@ -284,6 +360,94 @@ mod tests {
                 "error: unknown symbol · nevidomyi symvol · unbekanntes Symbol: збережи-гру"
             );
             wsm_free_string(result_ptr);
+            wsm_session_free(session);
+        }
+    }
+
+    #[test]
+    fn game_handle_wraps_and_unwraps_through_ffi() {
+        unsafe {
+            let session = wsm_session_init();
+            let fake_handle = 0x5555_usize as *mut core::ffi::c_void;
+
+            let mut word: u64 = 0;
+            assert_eq!(wsm_wrap_game_handle(session, fake_handle, &mut word as *mut u64), 0);
+
+            let mut recovered: *mut core::ffi::c_void = core::ptr::null_mut();
+            assert_eq!(wsm_unwrap_game_handle(session, word, &mut recovered as *mut _), 0);
+            assert_eq!(recovered, fake_handle);
+
+            // Wrong-kind word (a Fixnum, not a GameHandle-carrying Boxed word)
+            // reports 1, not a crash.
+            let mut out: *mut core::ffi::c_void = core::ptr::null_mut();
+            assert_eq!(
+                wsm_unwrap_game_handle(session, crate::word::encode_fixnum(42), &mut out as *mut _),
+                1
+            );
+
+            wsm_session_free(session);
+        }
+    }
+
+    #[test]
+    fn game_handle_round_trips_through_a_host_primitive_pair() {
+        // Simulates the real shape: one primitive wraps a handle it got
+        // from the host (here, a fixed test pointer standing in for
+        // ExecuteGlobalFunction("GetPlayer;GameInstance", ...)'s result),
+        // a second receives that Word back and unwraps it -- proving the
+        // Word survives a round trip through wsm_eval_string, not just a
+        // direct Rust-level call.
+        unsafe extern "C" fn stub_get_player(_argc: usize, _argv: *const u64, out: *mut u64) -> i32 {
+            // In this stub, the "session" isn't reachable from a plain
+            // HostPrimitiveFn -- real adapter code would close over its
+            // own session pointer. Here we just prove the *shape* works
+            // by wrapping inline via a thread-local session pointer set
+            // by the test below.
+            SESSION_FOR_TEST.with(|s| {
+                let session = *s.borrow();
+                let fake_handle = 0x1234_usize as *mut core::ffi::c_void;
+                wsm_wrap_game_handle(session, fake_handle, out)
+            })
+        }
+
+        unsafe extern "C" fn stub_check_player(argc: usize, argv: *const u64, out: *mut u64) -> i32 {
+            assert_eq!(argc, 1);
+            let word = *argv;
+            SESSION_FOR_TEST.with(|s| {
+                let session = *s.borrow();
+                let mut recovered: *mut core::ffi::c_void = core::ptr::null_mut();
+                let rc = wsm_unwrap_game_handle(session, word, &mut recovered as *mut _);
+                if rc != 0 {
+                    return rc;
+                }
+                *out = if recovered as usize == 0x1234 {
+                    crate::word::SYM_T_WORD
+                } else {
+                    crate::word::WORD_NIL
+                };
+                0
+            })
+        }
+
+        thread_local! {
+            static SESSION_FOR_TEST: std::cell::RefCell<*mut Session> = std::cell::RefCell::new(core::ptr::null_mut());
+        }
+
+        unsafe {
+            let session = wsm_session_init();
+            SESSION_FOR_TEST.with(|s| *s.borrow_mut() = session);
+
+            let get_player_name = CString::new("гравець-handle").unwrap();
+            assert_eq!(wsm_register_primitive(session, get_player_name.as_ptr(), stub_get_player), 0);
+            let check_name = CString::new("перевір-гравця").unwrap();
+            assert_eq!(wsm_register_primitive(session, check_name.as_ptr(), stub_check_player), 0);
+
+            let source = CString::new("(перевір-гравця (гравець-handle))").unwrap();
+            let result_ptr = wsm_eval_string(session, source.as_ptr());
+            let result = CStr::from_ptr(result_ptr).to_str().unwrap().to_string();
+            assert_eq!(result, "t");
+            wsm_free_string(result_ptr);
+
             wsm_session_free(session);
         }
     }

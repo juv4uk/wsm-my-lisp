@@ -1,19 +1,34 @@
 # Game injection plan
 
-Status update (2026-09-10, later same day): the plan below was originally
-written as research-only, blocked on an explicit owner go-ahead. That
-go-ahead was given (confirmed directly with the user, not just relayed) and
-**the plugin skeleton described in §(b) now actually exists**: `plugin/`
-(a C++ project, RED4ext.SDK vendored as a git submodule at
-`plugin/deps/red4ext.sdk`) builds cleanly via CMake+MSVC and exports
-exactly the 3 functions RED4ext's loader requires (`Main`/`Query`/
-`Supports`, confirmed via `dumpbin -exports`, not assumed). It has NOT
-been loaded into a real running game process yet -- no Cyberpunk 2077
-installation was available to test against in this environment, so
-"builds and exports the right symbols" is as far as this has been
-verified. The original research below is kept for context, with corrections
-flagged inline where the actual vendored SDK differed from what was
-originally found on the web.
+Status update #2 (2026-09-10, later same day): the RED4ext plugin skeleton
+this repo briefly carried at `plugin/` has been REMOVED from here. Owner
+issue [wsm-my-lisp#1](https://github.com/juv4uk/wsm-my-lisp/issues/1)
+states this repo's boundary explicitly: `wsm-my-lisp` stays a host-neutral
+WSM/self-hosted runtime, and RED4ext/Cyberpunk-specific code belongs in
+`my-lisp-cyberpunk`, not here. That repo's `adapter/` (with its own
+`deps/red4ext.sdk` submodule) is now the canonical location for the
+plugin -- it already has a working first vertical slice (see its
+`docs/vertical-slice.md`: a `запиши-лог` host primitive round-tripping
+Lisp -> host -> Lisp, log-only, no save/inventory/player-state access).
+The `plugin/` directory this doc originally described was a real,
+verified-buildable duplicate of that same idea, written before the
+adapter/runtime boundary was made explicit -- kept only as history below,
+not as a currently-accurate description of what's in this repo.
+
+Status update #1 (2026-09-10, earlier the same day, kept for history): the
+plan below was originally written as research-only, blocked on an
+explicit owner go-ahead. That go-ahead was given (confirmed directly with
+the user, not just relayed) and the plugin skeleton described in §(b) was
+built and verified in THIS repo at the time -- CMake+MSVC built it
+cleanly, and it exported exactly the 3 functions RED4ext's loader
+requires (`Main`/`Query`/`Supports`, confirmed via `dumpbin -exports`).
+It was never loaded into a real running game process from here (no
+Cyberpunk 2077 installation was available in this environment) before
+being superseded by the extraction described in update #2 above. The
+original research is kept for context, with corrections flagged inline
+where the actual vendored SDK differed from what was originally found on
+the web -- that correction is still accurate and still relevant to
+`my-lisp-cyberpunk/adapter`, which inherited the same fix.
 
 **Important correction, found only by actually vendoring and building
 against the real SDK, not by re-reading docs.red4ext.com harder**: the
@@ -85,11 +100,12 @@ modding ecosystem expects a plugin to do.
 - Plugins must be 64-bit, matching this repo's `dll/` crate already
   targeting `x86_64-pc-windows-msvc`.
 
-## (b) Minimal RED4ext plugin skeleton -- IMPLEMENTED, see `plugin/`
+## (b) Minimal RED4ext plugin skeleton -- MOVED to `my-lisp-cyberpunk/adapter/`
 
-What's actually in the repo now (`plugin/`, first commit after this doc's
-status update above), superseding the design sketch this section
-originally contained:
+This section describes what `plugin/` in THIS repo used to contain,
+before the update #2 extraction above. It is no longer present here --
+see `my-lisp-cyberpunk/adapter/` for the current, maintained version
+(same design, now living in the repo boundary it belongs in):
 
 1. `plugin/` is a separate C++20 CMake project (RED4ext plugins are C++
    against RED4ext.SDK's C++ headers, not something `dll/`'s Rust crate

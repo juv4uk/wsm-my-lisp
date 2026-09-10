@@ -134,3 +134,78 @@ repo's own session.
   is also a plausible concrete type to wrap into whichever opaque word
   representation (`Tag::Boxed` extension or new `CapabilityKind`) the
   open tag question above resolves to.
+
+## Player-position-as-snapshot research (2026-09-10, third pass)
+
+Following `Tag::Boxed`'s `GameHandle` ratification (contract v4), the
+next proposed capability is a position **snapshot** (3 plain numbers),
+not a live handle -- my-lisp's own recommendation for a simpler MVP.
+This section researches the two sub-questions asked: (a) RED4ext's own
+position type shape, (b) float-to-tagged-word representation. Still
+research only, no implementation.
+
+### (a) RED4ext's position types -- read directly from the vendored SDK
+
+- `RED4ext::Vector3` (`Scripting/Natives/Vector3.hpp`): exactly 3
+  `float` fields, `X`/`Y`/`Z`, `RED4EXT_ASSERT_SIZE(Vector3, 0xC)` (12
+  bytes -- confirms no hidden padding/4th field).
+- `RED4ext::Vector4` (`Scripting/Natives/Vector4.hpp`): 4 `float`
+  fields, `X`/`Y`/`Z`/`W`.
+- `RED4ext::WorldPosition` (`Scripting/Natives/WorldPosition.hpp`): NOT
+  a float type -- 3 `FixedPoint` fields (`x`/`y`/`z`), where
+  `FixedPoint` is a bare `int32_t Bits`. Its own constructor shows the
+  scale factor directly: `x.Bits = static_cast<int32_t>(aPosition.X *
+  (2 << 16))` (`2 << 16` = 131072, i.e. roughly Q17 fixed-point -- 17
+  fractional bits), and `AsVector3()` divides back by the same constant
+  to recover a `float`. **This is RED4ext's own precedent for
+  representing a world position as a scaled integer instead of a raw
+  float** -- directly relevant to the encoding question below, not
+  something this crate needs to invent from scratch.
+- Not yet determined in this pass: which concrete RED4ext script
+  function actually returns the player's position (`Vector4` directly,
+  or a `WorldPosition`) -- that requires finding the specific RTTI
+  property/function name on `PlayerPuppet`'s class (or a related
+  system), not yet located in the examples checked so far. Flagged as a
+  real remaining gap, not glossed over.
+
+### (b) float -> tagged-word representation -- no existing ecosystem precedent found, RED4ext's own technique is the closest fit
+
+Checked directly: `wsm_os_target::Tag` has **no Float/Rational tag at
+all** -- only `Fixnum` (a plain 61-bit signed integer, `encode_fixnum`/
+`decode_fixnum` in this crate's own `word.rs`). There is no existing
+tagged-word float or rational representation anywhere in the consumed
+ABI to reuse. (my-lisp's own `Value::Number(f64, Exactness)`/
+`Value::Rational` exist at the *language* level, per `my-lisp#51`'s own
+"semantic fact vs machine representation" distinction already
+established for `Boxed` -- but neither has a tagged-word ABI projection
+today; this repo would be defining a new one, not consuming an existing
+one, if it went that route.)
+
+**Proposed approach, not decided**: mirror RED4ext's own `WorldPosition`
+technique -- scale each float to a fixed-point integer and store it as
+an ordinary `Fixnum`, rather than inventing a new tag. Concretely:
+`encode_fixnum((x * SCALE).round() as i64)` for a chosen `SCALE` (e.g.
+reusing RED4ext's own `131072` for byte-compatible round-tripping
+against their `WorldPosition`, or a simpler round-number scale like
+`1000` for millimeter precision if `WorldPosition` isn't actually the
+source type). `Fixnum`'s 61-bit payload has enormous headroom for either
+choice -- precision loss is bounded by the chosen scale's granularity,
+not by the tagged-word format itself.
+
+**Honest limits of this proposal, not hidden**:
+- This discards true floating-point precision by design -- a snapshot
+  a Lisp script reads back will not bit-for-bit match the engine's own
+  `float`, only match it to the chosen scale's resolution. For a
+  position-awareness capability (not physics/precision movement), this
+  was flagged as an acceptable MVP tradeoff, not verified against actual
+  requirements from the owner.
+- A 3-number snapshot needs to reach Lisp as some structure (e.g. a
+  3-element list built via `wsm_cons`, already exported and usable from
+  a `HostPrimitiveFn` callback) -- not designed here, since it's
+  implementation, not representation research.
+- If the ecosystem later needs real Rational/Float values in the tagged
+  word ABI for other reasons (not just this one capability), that is a
+  `wsm-target-contract`-scale question like `Boxed`/`Capability` were --
+  not something to back into via one capability's own scaling choice.
+  This proposal deliberately does NOT ask for a new tag; it reuses
+  `Fixnum` exactly as already ratified.

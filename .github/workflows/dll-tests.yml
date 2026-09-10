@@ -1,0 +1,48 @@
+name: dll tests (Windows)
+
+# Runs dll/'s test suite (win64 nucleus + reader/eval/printer/ffi) on the
+# only target it's meaningful for: x86_64-pc-windows-msvc. Per owner issue
+# #1's acceptance criterion "CI green on the supported Windows path" --
+# the local `36/36 tests pass` claims made in this repo's commit history
+# become reproducible CI evidence here, not just a developer's own machine.
+#
+# Deliberately scoped to dll/ only: harness/ (the SysV/Linux nucleus.s
+# witnesses) is a different target and out of scope for this workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dll/**"
+      - "asm/nucleus-win64.s"
+      - ".github/workflows/dll-tests.yml"
+  pull_request:
+    paths:
+      - "dll/**"
+      - "asm/nucleus-win64.s"
+      - ".github/workflows/dll-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: dll
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable, x86_64-pc-windows-msvc)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      # dll/.cargo/config.toml already forces RUST_TEST_THREADS=1 (the
+      # win64 nucleus's arena is a single unsynchronized global bump
+      # allocator, not thread-safe -- see that file's own comment for the
+      # reproduced race this fixes). Nothing extra needed here for that.
+      - name: cargo test
+        run: cargo test --target x86_64-pc-windows-msvc --verbose
+
+      - name: cargo build (cdylib)
+        run: cargo build --target x86_64-pc-windows-msvc --verbose

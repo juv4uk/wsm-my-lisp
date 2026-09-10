@@ -1,0 +1,9 @@
+[package]
+name = "wsm-my-lisp-cyberpunk-dll"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+# rlib in addition to cdylib so `cargo test` can link the primitive
+# smoke tests below; the shipped artifact is still the cdylib.
+crate-type = ["cdylib", "rlib"]

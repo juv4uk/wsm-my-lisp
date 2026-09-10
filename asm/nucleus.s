@@ -1,89 +1,50 @@
 /* nucleus.s -- hand-written x86_64 GNU-asm core primitives for WSM.
  *
- * Not generated, not ported from Rust: this is the "ядро на асамблері під
- * моє залізо" the owner asked for. It implements the same extern "C" ABI
- * that wsm-os-runtime's Rust wsm_cons/wsm_car/wsm_cdr/wsm_eq/wsm_atom
- * already provide (see wsm-os/crates/wsm-os-runtime/src/lib.rs:409-449),
- * calling convention SysV AMD64 (RUNTIME_IMPORTS / CALLING_CONVENTION in
- * wsm-os/crates/wsm-os-target/src/lib.rs), so CML-generated wsm_entry code
- * can call these instead without any change to the generated assembly.
+ * Not generated, not ported from Rust: this is the small execution nucleus
+ * used by the self-hosting witnesses. It implements the same extern "C" ABI
+ * consumed by CML-generated wsm_entry code, using the SysV AMD64 calling
+ * convention.
  *
- * Reason for hand-writing this is architectural, not performance: remove
- * Rust from primitive *semantics* at execution time, per the owner's
- * 2026-09-02 bootstrap-boundary strategy (WSM defines WSM, not Rust). No
- * cycle counts are claimed here -- this has not been profiled and makes no
- * speed claim.
+ * Reason for hand-writing this is architectural, not performance: Rust is
+ * absent from primitive execution semantics. No cycle-count or speed claim is
+ * made here. The arena is deliberately bounded (4096 bytes / 256 cons cells),
+ * with no GC or growth.
  *
- * Deliberately bounded, not a general allocator: a small fixed-size bump
- * arena (see ARENA_BYTES below), no GC, no growth, matching
- * wsm-os/docs/OWNER-HARDWARE-PROFILE.md's own M1/M2 guidance ("should use
- * a deliberately small fixed heap and explicitly test OOM") and this
- * task's own boundary (5 primitives only -- cons/car/cdr/eq/atom -- no
- * closures/GC/heap-growth in this pass). Scalar x86_64 only: no AVX2/BMI2
- * instructions, matching the owner's own documented hardware baseline
- * (Intel Core i5-6400 profile explicitly defers those extensions).
+ * Target-word representation is MECHANISM, not language authority. The
+ * authoritative machine representation comes from the pinned
+ * wsm-target-contract. Its current ABI still contains a historical
+ * Tag::True=2 slot, but canonical WSM truth is the ordinary Symbol("t") word
+ * CANONICAL_T = encode_symbol(SYMBOL_ID_MAX). This nucleus therefore does NOT
+ * declare a local TAG_TRUE and must never emit that historical tag. `wsm_eq`
+ * and `wsm_atom` return SYM_T_WORD on their positive branch and TAG_NIL on the
+ * negative branch. harness/tests/semantic_authority.rs checks these assembly
+ * projections against the pinned target contract and includes a deliberately
+ * bad manufactured-truth fixture that must fail closed.
  *
- * Word encoding (wsm-os-target::Tag, WORD_BITS=64, TAG_BITS=3,
- * PAYLOAD_BITS=61): Cons=0, Nil=1, True=2, Fixnum=3, Symbol=4, Closure=5,
- * Capability=6. Cons cells are 16 bytes, 16-byte aligned, car at offset 0,
- * cdr at offset 8 (CONS_ALIGNMENT/CONS_BYTES/CONS_CAR_OFFSET/
- * CONS_CDR_OFFSET). Because Tag::Cons is 0 and every allocation here is
- * 16-byte aligned, a cons pointer's low 3 bits are always already zero --
- * the raw pointer IS the tagged word, no OR/mask needed to tag it, only a
- * mask to strip a caller's tag bits back off before dereferencing (defensive
- * only; every cons word this code itself produces already has zero low
- * bits).
+ * Word encoding used by the admitted slice: Cons=0, Nil=1, Fixnum=3,
+ * Symbol=4, Closure=5, Capability=6; TAG_BITS=3. Cons cells are 16 bytes,
+ * 16-byte aligned, car at offset 0 and cdr at offset 8. Because Tag::Cons is
+ * zero and every allocation here is 16-byte aligned, the raw pointer is the
+ * tagged cons word.
  *
- * context (%rdi) is accepted, per the ABI signature every wsm_* function
- * must have, and deliberately ignored: this nucleus does not reuse Rust's
- * RuntimeContext layout (that struct is a private Rust implementation
- * detail, not a stable cross-language ABI -- only the wsm-os-target word
- * encoding and the wsm_* function ABI are the actual contract). This
- * nucleus owns its own static arena instead. This is why it is a parallel,
- * additive path in a new repository, not a drop-in replacement for
- * wsm-os-runtime: swapping it into wsm-os-hosted/-kernel as-is would lose
- * whatever those callers still expect from a real RuntimeContext (closure
- * heap, condition record) that this nucleus does not implement.
+ * context (%rdi) is accepted by the ABI and deliberately ignored: this
+ * nucleus owns its own static arena and does not depend on Rust's private
+ * RuntimeContext layout.
  */
 
     .text
 
     .equ TAG_CONS,   0
     .equ TAG_NIL,    1
-    .equ TAG_TRUE,   2   /* superseded below: wsm_eq/wsm_atom no longer emit this.
-                          * Left declared, matching wsm-os-target::Tag::True itself
-                          * (not removed there either -- a separate, bigger question).
-                          */
     .equ TAG_SYMBOL, 4
     .equ TAG_MASK,   7
 
-    /* Canonical `t` as an ordinary Symbol, not a manufactured Tag::True
-     * primitive -- 2026-09-02 owner directive: "() не визначаємо... t має
-     * пройти тим самим шляхом, що й будь-який інший Symbol." Applied here
-     * the same way as fpga-lisp's SYM_T=79 fix, with one honest difference
-     * this ABI has and fpga-lisp's frozen bootstrap table does not:
-     * wsm-os-target's Symbol ids are documented as "image-local-interned"
-     * (cml/src/x86_freestanding.rs assigns each compiled program's own
-     * quoted symbols sequential ids from a sorted BTreeSet, starting at 1)
-     * -- there is no single canonical id for `t` shared across programs to
-     * reuse, unlike fpga-lisp's fixed global symbol table. Reserving
-     * SYMBOL_ID_MAX (wsm-os-target's own documented maximum valid symbol
-     * id, 2^61-1) as a sentinel for `t` makes a real collision with a
-     * per-program-interned id practically unreachable (a program would
-     * need to intern ~2^61 distinct symbols), but it is NOT a proof of
-     * uniqueness the way a frozen global table would be. A caller that
-     * compares this nucleus's eq/atom "true" result against a *literal*
-     * quoted `t` appearing in that same compiled program's own source via
-     * a second `eq` call would get that program's own (different, small)
-     * interned id for `t` on the other side -- the two encodings would not
-     * compare equal. That composition is not exercised by any of this
-     * repo's harness/ examples today; closing it for real needs either a
-     * shared reserved-id convention baked into cml's symbol assignment
-     * itself, or wsm_eq/wsm_atom consulting the caller's own symbol table
-     * (which these free functions have no access to). Flagging this
-     * honestly rather than presenting the sentinel as a complete fix. */
+    /* Mechanical projection of wsm_os_target::CANONICAL_T. The Rust harness
+     * verifies these values against the pinned target contract, so changing
+     * the contract without updating this projection fails CI rather than
+     * silently inventing target semantics here. */
     .equ SYM_T_ID,   0x1FFFFFFFFFFFFFFF   /* wsm_os_target::SYMBOL_ID_MAX */
-    .equ SYM_T_WORD, (SYM_T_ID << 3) | TAG_SYMBOL   /* wsm_os_target::encode_symbol(SYM_T_ID) */
+    .equ SYM_T_WORD, (SYM_T_ID << 3) | TAG_SYMBOL
 
 /* wsm_cons(context: *mut RuntimeContext [ignored], car: Word, cdr: Word) -> Word */
     .globl wsm_cons

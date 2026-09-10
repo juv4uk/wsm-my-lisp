@@ -1,19 +1,24 @@
 //! Minimal evaluator for one-shot console commands: self-evaluating
 //! fixnums/Nil/`t`/strings, symbol lookup (host-registered bindings or
-//! UnknownSymbol error), host-primitive dispatch, and `cond` as a special
-//! form. Deliberately no lambda/closures/def -- see asm/nucleus-win64.s's
-//! header for why that stays out of scope for this pass.
+//! UnknownSymbol error), host-primitive dispatch, and `cond`/`quote` as
+//! special forms. Deliberately no lambda/closures/def -- see
+//! asm/nucleus-win64.s's header for why that stays out of scope for this
+//! pass.
 //!
 //! Both design questions below were open when this file was first written
 //! and have since been confirmed directly by my-lisp (2026-09-10, against
 //! their own code, not from memory):
 //!
-//! - **`cond` is a true evaluator special form**, not a macro -- my-lisp's
-//!   own `language-contract.my` `special-forms-boundary` states `quote
-//!   cond lambda def defmacro` "are NOT callable values. They are
+//! - **`cond`/`quote` are true evaluator special forms**, not macros --
+//!   my-lisp's own `language-contract.my` `special-forms-boundary` states
+//!   `quote cond lambda def defmacro` "are NOT callable values. They are
 //!   syntactic evaluation rules," part of immutable Canon (0+7). This
-//!   file's model (recognize `cond` by name before normal call dispatch,
-//!   never evaluate it as an ordinary call) matches that.
+//!   file's model (recognize each by name before normal call dispatch,
+//!   never evaluate as an ordinary call) matches that. `quote` was
+//!   missing from the first version of this file -- found only while
+//!   writing tests/my_lisp_fixture_parity.rs against my-lisp's own §3
+//!   cond example, which uses `(quote ...)` directly; added once the gap
+//!   was actually hit, not designed in speculatively up front.
 //! - **Bare symbol arguments require a prior binding, same as real
 //!   my-lisp's own `def`** -- my-lisp confirmed there is no
 //!   "self-evaluating identifier" concept: a bare symbol always attempts
@@ -123,6 +128,14 @@ fn eval_list(word: u64, env: &Env, symbols: &SymbolTable) -> Result<u64, EvalErr
 
     if name == "cond" {
         return eval_cond(rest, env, symbols);
+    }
+    if name == "quote" {
+        // Same special-forms-boundary as cond (my-lisp's language-contract.my:
+        // "quote cond lambda def defmacro are NOT callable values") -- returns
+        // its single argument completely unevaluated. Found missing (not
+        // designed in up front) while writing tests/my_lisp_fixture_parity.rs
+        // against my-lisp's own §3 example, which uses `(quote ...)` directly.
+        return Ok(unsafe { wsm_car(core::ptr::null_mut(), rest) });
     }
 
     let args = eval_args(rest, env, symbols)?;
@@ -353,5 +366,18 @@ mod tests {
         let env = Env::new();
         let word = read_one("t", &mut symbols, &mut strings).unwrap();
         assert_eq!(eval(word, &env, &symbols).unwrap(), SYM_T_WORD);
+    }
+
+    #[test]
+    fn quote_returns_its_argument_unevaluated() {
+        let mut symbols = SymbolTable::new();
+        let mut strings = BoxedTable::new();
+        let env = Env::new();
+        // `невідомий-символ` is never bound/registered -- if quote's
+        // argument were evaluated instead of returned as-is, this would
+        // raise UnknownSymbol instead of returning the symbol itself.
+        let word = read_one("(quote невідомий-символ)", &mut symbols, &mut strings).unwrap();
+        let result = eval(word, &env, &symbols).unwrap();
+        assert_eq!(symbols.name_of(result), Some("невідомий-символ"));
     }
 }

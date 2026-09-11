@@ -15,8 +15,8 @@ Cyberpunk. No RED4ext types in this crate.
 
 ## Freeze (still in force on this mirror)
 
-No new Lisp language capabilities in Rust here. Bugfix / security /
-compat only — and prefer the cyberpunk tree.
+This mirror is **frozen** for new Lisp language capabilities in Rust.
+Bugfix / security / compat only — and prefer the cyberpunk tree.
 
 ## Build
 

@@ -7,8 +7,9 @@
  *
  * Reason for hand-writing this is architectural, not performance: Rust is
  * absent from primitive execution semantics. No cycle-count or speed claim is
- * made here. The arena is deliberately bounded (4096 bytes / 256 cons cells),
- * with no GC or growth.
+ * made here. The cons arena is deliberately bounded (4096 bytes / 256 cells),
+ * with no GC or growth. The closure arena added for Stage2 is likewise bounded
+ * and exists only to realize the already-ratified target ABI closure descriptor.
  *
  * Target-word representation is MECHANISM, not language authority. The
  * authoritative machine representation comes from the pinned
@@ -25,19 +26,28 @@
  * Symbol=4, Closure=5, Capability=6; TAG_BITS=3. Cons cells are 16 bytes,
  * 16-byte aligned, car at offset 0 and cdr at offset 8. Because Tag::Cons is
  * zero and every allocation here is 16-byte aligned, the raw pointer is the
- * tagged cons word.
+ * tagged cons word. Closure descriptors are also 16-byte aligned; their tagged
+ * word is pointer|5, definition_id is at offset 0, environment_ref at offset 8.
  *
  * context (%rdi) is accepted by the ABI and deliberately ignored: this
- * nucleus owns its own static arena and does not depend on Rust's private
+ * nucleus owns its own static arenas and does not depend on Rust's private
  * RuntimeContext layout.
  */
 
     .text
 
-    .equ TAG_CONS,   0
-    .equ TAG_NIL,    1
-    .equ TAG_SYMBOL, 4
-    .equ TAG_MASK,   7
+    .equ TAG_CONS,    0
+    .equ TAG_NIL,     1
+    .equ TAG_SYMBOL,  4
+    .equ TAG_CLOSURE, 5
+    .equ TAG_MASK,    7
+
+    /* Механічна проєкція wsm_os_target::ClosureDescriptor. Значення нижче
+     * перевіряються semantic_authority.rs проти pinned target contract. */
+    .equ CLOSURE_ALIGNMENT,             16
+    .equ CLOSURE_BYTES,                 16
+    .equ CLOSURE_DEFINITION_ID_OFFSET,   0
+    .equ CLOSURE_ENVIRONMENT_REF_OFFSET, 8
 
     /* Mechanical projection of wsm_os_target::CANONICAL_T. The Rust harness
      * verifies these values against the pinned target contract, so changing
@@ -107,12 +117,105 @@ wsm_atom:
 1:  ret
     .size wsm_atom, . - wsm_atom
 
+/* Stage2 closure ABI.
+ *
+ * Це не нова Lisp-примітива. Closure=5, layout дескриптора і три імпорти
+ * wsm_closure_* уже ратифіковані wsm-target-contract; тут лише мінімальна
+ * SysV-механіка, потрібна CML для матеріалізації справжньої identity closure.
+ * Окремий bump-арена робить дві однакові closure-конструкції різними Word,
+ * тому `eq` природно перевіряє identity, а не структуру -- саме це потрібно
+ * provenance-токенам поточного meta-eval.my.
+ */
+
+/* wsm_closure_new(context [ignored], definition_id: u32, environment_ref: Word) -> Word */
+    .globl wsm_closure_new
+    .type wsm_closure_new, @function
+wsm_closure_new:
+    movq    wsm_closure_arena_next(%rip), %rax
+    leaq    CLOSURE_BYTES(%rax), %rcx
+    cmpq    wsm_closure_arena_end(%rip), %rcx
+    ja      wsm_closure_new_oom
+    movl    %esi, CLOSURE_DEFINITION_ID_OFFSET(%rax)
+    movl    $0, 4(%rax)             /* deterministic ABI padding */
+    movq    %rdx, CLOSURE_ENVIRONMENT_REF_OFFSET(%rax)
+    movq    %rcx, wsm_closure_arena_next(%rip)
+    orq     $TAG_CLOSURE, %rax
+    ret
+wsm_closure_new_oom:
+    movl    $1, %esi                /* ErrorCode::OutOfMemory = 1 */
+    xorl    %edx, %edx
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+    .size wsm_closure_new, . - wsm_closure_new
+
+/* wsm_closure_definition(context, closure: Word) -> raw u32 definition_id in eax */
+    .globl wsm_closure_definition
+    .type wsm_closure_definition, @function
+wsm_closure_definition:
+    movq    %rsi, %rdx              /* keep original word for failure evidence */
+    movq    %rsi, %rax
+    movq    %rax, %rcx
+    andq    $TAG_MASK, %rcx
+    cmpq    $TAG_CLOSURE, %rcx
+    jne     .Lclosure_definition_type
+    andq    $-8, %rax
+    testq   $(CLOSURE_ALIGNMENT - 1), %rax
+    jne     .Lclosure_definition_abi
+    leaq    wsm_closure_arena(%rip), %rcx
+    cmpq    %rcx, %rax
+    jb      .Lclosure_definition_abi
+    movq    wsm_closure_arena_next(%rip), %rcx
+    cmpq    %rcx, %rax
+    jae     .Lclosure_definition_abi
+    movl    CLOSURE_DEFINITION_ID_OFFSET(%rax), %eax
+    ret
+.Lclosure_definition_type:
+    movl    $2, %esi                /* ErrorCode::Type = 2 */
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+.Lclosure_definition_abi:
+    movl    $4, %esi                /* ErrorCode::AbiViolation = 4 */
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+    .size wsm_closure_definition, . - wsm_closure_definition
+
+/* wsm_closure_environment(context, closure: Word) -> owned WSM environment_ref */
+    .globl wsm_closure_environment
+    .type wsm_closure_environment, @function
+wsm_closure_environment:
+    movq    %rsi, %rdx              /* keep original word for failure evidence */
+    movq    %rsi, %rax
+    movq    %rax, %rcx
+    andq    $TAG_MASK, %rcx
+    cmpq    $TAG_CLOSURE, %rcx
+    jne     .Lclosure_environment_type
+    andq    $-8, %rax
+    testq   $(CLOSURE_ALIGNMENT - 1), %rax
+    jne     .Lclosure_environment_abi
+    leaq    wsm_closure_arena(%rip), %rcx
+    cmpq    %rcx, %rax
+    jb      .Lclosure_environment_abi
+    movq    wsm_closure_arena_next(%rip), %rcx
+    cmpq    %rcx, %rax
+    jae     .Lclosure_environment_abi
+    movq    CLOSURE_ENVIRONMENT_REF_OFFSET(%rax), %rax
+    ret
+.Lclosure_environment_type:
+    movl    $2, %esi                /* ErrorCode::Type = 2 */
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+.Lclosure_environment_abi:
+    movl    $4, %esi                /* ErrorCode::AbiViolation = 4 */
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+    .size wsm_closure_environment, . - wsm_closure_environment
+
 /* wsm_fail(context, code: u32, a: Word, b: Word) -> ! -- unrecoverable
- * condition (OOM here). No RuntimeContext::condition record exists in this
- * nucleus (out of this pass's bounded scope), so this reports on stderr via
- * a raw Linux write(2) syscall and exits via raw exit(2) -- no libc, matching
- * this file's freestanding style, acceptable because this is a hosted
- * (Linux process) witness harness, not a bare-metal kernel entry. */
+ * condition (OOM/type/ABI violation here). No RuntimeContext::condition record
+ * exists in this bounded nucleus, so this reports on stderr via raw Linux
+ * write(2) and exits via raw exit(2) -- no libc, matching this file's
+ * freestanding style, acceptable because this is a hosted (Linux process)
+ * witness harness, not a bare-metal kernel entry. */
     .globl wsm_fail
     .type wsm_fail, @function
 wsm_fail:
@@ -128,7 +231,7 @@ wsm_fail:
 
     .section .rodata
 wsm_fail_msg:
-    .ascii "wsm-my-lisp asm nucleus: unrecoverable condition (arena exhausted)\n"
+    .ascii "wsm-my-lisp asm nucleus: unrecoverable condition\n"
     .equ wsm_fail_msg_len, . - wsm_fail_msg
 
     .section .bss
@@ -139,14 +242,24 @@ wsm_fail_msg:
 wsm_arena:
     .zero ARENA_BYTES
 
-    /* .data, not .bss: these two cells hold an initialized address (a
-     * relocation/fixup against wsm_arena), which a zero-initialized .bss
-     * section cannot carry. */
+    .align CLOSURE_ALIGNMENT
+    /* 4096 bytes = 256 closure descriptors. Stage2 needs identity-bearing
+     * closure values, not a general GC heap; bounded growth stays explicit. */
+    .equ CLOSURE_ARENA_BYTES, 4096
+wsm_closure_arena:
+    .zero CLOSURE_ARENA_BYTES
+
+    /* .data, not .bss: these cells hold initialized addresses (relocations),
+     * which a zero-initialized .bss section cannot carry. */
     .section .data
     .align 8
 wsm_arena_next:
     .quad wsm_arena
 wsm_arena_end:
     .quad wsm_arena + ARENA_BYTES
+wsm_closure_arena_next:
+    .quad wsm_closure_arena
+wsm_closure_arena_end:
+    .quad wsm_closure_arena + CLOSURE_ARENA_BYTES
 
     .section .note.GNU-stack,"",@progbits

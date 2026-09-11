@@ -126,10 +126,10 @@ fn eval_list(word: u64, env: &Env, symbols: &SymbolTable) -> Result<u64, EvalErr
         .name_of(head)
         .expect("symbol word not found in the table that produced it");
 
-    if name == "cond" {
+    if is_cond_spelling(name) {
         return eval_cond(rest, env, symbols);
     }
-    if name == "quote" {
+    if is_quote_spelling(name) {
         // Same special-forms-boundary as cond (my-lisp's language-contract.my:
         // "quote cond lambda def defmacro are NOT callable values") -- returns
         // its single argument completely unevaluated. Found missing (not
@@ -146,6 +146,32 @@ fn eval_list(word: u64, env: &Env, symbols: &SymbolTable) -> Result<u64, EvalErr
         }),
         None => Err(EvalError::UnknownSymbol(name.to_string())),
     }
+}
+
+/// Real gap found (not a hypothetical), 2026-09-11: `eval_list` used to
+/// hardcode only the ASCII English spelling `"cond"`/`"quote"` as the
+/// special-form trigger -- but my-lisp's own
+/// `lib/surface/semantic-registry.wsm` declares Canon primitives as one
+/// numeric semantic ID (Canon 0+7) with MULTIPLE equally-valid surface
+/// spellings (en/uk/sa/sym), not a single canonical name. Confirmed this
+/// was already live, not just theoretical: `my-lisp-cyberpunk/scripts/
+/// перший-зріз.мій` uses `(як-є ())` (the `uk` spelling of `quote`,
+/// registry id `0001`) -- if that script were ever run through THIS
+/// crate's `wsm_eval_string` instead of the reference `my-lisp` CLI it
+/// was actually run through, it would have failed with `UnknownSymbol`
+/// on `як-є`, silently diverging from the registry's own stated
+/// equivalence. Fixed by recognizing every surface spelling the registry
+/// declares for `quote` (id `0001`: en `quote`, uk `як-є`, sa `svarūpa`,
+/// sym `'`) and `cond` (id `0007`: en `cond`, uk `за-умовою`, sa
+/// `anukrama`, sym `?:`), not just the English one. If the registry's
+/// spellings for either entry ever change, this list needs updating to
+/// match -- it is a copy of registry facts, not itself authoritative.
+fn is_quote_spelling(name: &str) -> bool {
+    matches!(name, "quote" | "як-є" | "svarūpa" | "'")
+}
+
+fn is_cond_spelling(name: &str) -> bool {
+    matches!(name, "cond" | "за-умовою" | "anukrama" | "?:")
 }
 
 fn eval_args(mut list: u64, env: &Env, symbols: &SymbolTable) -> Result<Vec<u64>, EvalError> {
@@ -379,5 +405,32 @@ mod tests {
         let word = read_one("(quote невідомий-символ)", &mut symbols, &mut strings).unwrap();
         let result = eval(word, &env, &symbols).unwrap();
         assert_eq!(symbols.name_of(result), Some("невідомий-символ"));
+    }
+
+    #[test]
+    fn ukrainian_surface_spelling_of_quote_is_recognized() {
+        // Reproduces the exact real gap found 2026-09-11: my-lisp-cyberpunk/
+        // scripts/перший-зріз.мій uses `(як-є ())` -- the `uk` surface
+        // spelling of `quote` per semantic-registry.wsm's id 0001. Before
+        // this fix, only the ASCII "quote" string was recognized as the
+        // special form, so this would have failed with UnknownSymbol.
+        let mut symbols = SymbolTable::new();
+        let mut strings = BoxedTable::new();
+        let env = Env::new();
+        let word = read_one("(як-є фара)", &mut symbols, &mut strings).unwrap();
+        let result = eval(word, &env, &symbols).unwrap();
+        assert_eq!(symbols.name_of(result), Some("фара")); // unevaluated, like (quote фара)
+    }
+
+    #[test]
+    fn ukrainian_surface_spelling_of_cond_is_recognized() {
+        // Same gap, for cond (semantic-registry.wsm id 0007, uk spelling
+        // "за-умовою") -- not yet observed in a real script, but the same
+        // class of bug, fixed the same way.
+        let mut symbols = SymbolTable::new();
+        let mut strings = BoxedTable::new();
+        let env = Env::new();
+        let word = read_one("(за-умовою (0 1) (t 2))", &mut symbols, &mut strings).unwrap();
+        assert_eq!(decode_fixnum(eval(word, &env, &symbols).unwrap()), 1);
     }
 }

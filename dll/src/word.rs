@@ -158,6 +158,16 @@ impl SymbolTable {
 pub enum BoxedValue {
     Str(String),
     GameHandle(*mut core::ffi::c_void),
+    /// `(numerator, denominator)`, always stored reduced with a positive
+    /// denominator -- the same invariant my-lisp's own `Rational`
+    /// maintains at every construction path (`crates/my-lisp/src/
+    /// value.rs`'s `Rational::new`/`from_big`). my-lisp confirmed
+    /// (2026-09-11, coordinating on a future `(позиція-гравця)`
+    /// capability) this reduction should happen at construction, not
+    /// only at print time, so a printed value is byte-identical to their
+    /// own oracle's "N/D" format automatically -- see `BoxedTable::
+    /// add_rational`.
+    Rational(i64, i64),
 }
 
 /// Per-evaluator boxed-value table, ratified shape (see this module's
@@ -219,6 +229,34 @@ impl BoxedTable {
         }
     }
 
+    /// Reduces `numerator/denominator` to lowest terms with a positive
+    /// denominator (my-lisp's own invariant, confirmed 2026-09-11 --
+    /// see `BoxedValue::Rational`'s own doc) and stores it. `denominator
+    /// == 0` panics -- a Rational is a fact about a number, not
+    /// something with an "undefined" state this crate should silently
+    /// paper over; a caller constructing one from host data it doesn't
+    /// yet trust should validate the denominator before calling this,
+    /// not rely on this function to fail softly.
+    pub fn add_rational(&mut self, numerator: i64, denominator: i64) -> u64 {
+        assert_ne!(denominator, 0, "Rational denominator must not be zero");
+        let (numerator, denominator) = reduce(numerator, denominator);
+        let handle = self.values.len() as u64 + 1;
+        self.values.push(BoxedValue::Rational(numerator, denominator));
+        wsm_os_target::encode_boxed(handle).expect("handle is non-zero and within BOXED_HANDLE_MAX by construction")
+    }
+
+    /// Returns `(numerator, denominator)`, already reduced with a
+    /// positive denominator (the invariant `add_rational` establishes at
+    /// construction, not just at print time).
+    pub fn get_rational(&self, word: u64) -> Option<(i64, i64)> {
+        let handle = wsm_os_target::decode_boxed(word)?;
+        let index = (handle - 1) as usize;
+        match self.values.get(index) {
+            Some(BoxedValue::Rational(n, d)) => Some((*n, *d)),
+            _ => None,
+        }
+    }
+
     /// For printer.rs: which `BoxedValue` kind `word` refers to, without
     /// exposing the actual `GameHandle` pointer value to a printed
     /// representation (that would leak a host address into Lisp-visible
@@ -229,14 +267,35 @@ impl BoxedTable {
         match self.values.get(index) {
             Some(BoxedValue::Str(_)) => Some(BoxedKind::Str),
             Some(BoxedValue::GameHandle(_)) => Some(BoxedKind::GameHandle),
+            Some(BoxedValue::Rational(_, _)) => Some(BoxedKind::Rational),
             None => None,
         }
     }
 }
 
+/// Euclid's algorithm on the absolute values, then reattaches the sign so
+/// the denominator ends up positive (moving any sign to the numerator) --
+/// matches my-lisp's own stated `Rational` invariant exactly ("denominator
+/// is always positive and the fraction always reduced").
+fn reduce(numerator: i64, denominator: i64) -> (i64, i64) {
+    fn gcd(a: i64, b: i64) -> i64 {
+        if b == 0 {
+            a
+        } else {
+            gcd(b, a % b)
+        }
+    }
+    let sign = if denominator < 0 { -1 } else { 1 };
+    let n = numerator * sign;
+    let d = denominator * sign;
+    let divisor = gcd(n.abs(), d).max(1); // gcd(0, d) == d; .max(1) guards n == 0
+    (n / divisor, d / divisor)
+}
+
 pub enum BoxedKind {
     Str,
     GameHandle,
+    Rational,
 }
 
 #[cfg(test)]

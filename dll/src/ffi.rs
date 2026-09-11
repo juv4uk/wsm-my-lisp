@@ -349,6 +349,82 @@ pub unsafe extern "C" fn wsm_unwrap_game_handle(
     result.unwrap_or(-2)
 }
 
+/// Wraps an exact fraction into a `Boxed` Word carrying
+/// `BoxedValue::Rational` -- per my-lisp's confirmation (2026-09-11,
+/// coordinating on a future `(позиція-гравця)` capability) that a
+/// `Rational` must be its own distinct, identity-bearing value, not a
+/// plain `(numerator . denominator)` cons pair (which would be
+/// indistinguishable from an arbitrary cons a Lisp expression could
+/// construct itself, and would print wrong -- `(5 . 336)` instead of
+/// their own oracle's `5/336`). Reduces to lowest terms with a positive
+/// denominator at construction (`word.rs`'s `add_rational`/`reduce`),
+/// matching my-lisp's own `Rational` invariant, so the printed result is
+/// byte-identical to their oracle automatically.
+///
+/// Writes the encoded Word to `*out` and returns 0 on success. Returns
+/// -1 for a null `session`/`out` pointer or a zero `denominator` (this
+/// crate treats a zero denominator as a caller error to reject, not
+/// something to silently coerce), -2 if a panic was caught.
+///
+/// # Safety
+/// `session` must be a live pointer from `wsm_session_init`. `out` must
+/// be a valid, writable `u64` for the duration of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wsm_wrap_rational(
+    session: *mut Session,
+    numerator: i64,
+    denominator: i64,
+    out: *mut u64,
+) -> i32 {
+    if session.is_null() || out.is_null() || denominator == 0 {
+        return -1;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let session = unsafe { &mut *session };
+        let word = session.boxed.add_rational(numerator, denominator);
+        unsafe { *out = word };
+        0
+    }));
+    result.unwrap_or(-2)
+}
+
+/// Recovers the `(numerator, denominator)` a `Boxed` Word (produced by
+/// `wsm_wrap_rational`) carries -- already reduced, denominator always
+/// positive. Writes them to `*out_numerator`/`*out_denominator` and
+/// returns 0 on success; returns 1 (matching `wsm_unwrap_game_handle`'s
+/// own "wrong kind" convention) if `word` isn't a `Rational` Boxed word.
+/// Returns -1 for a null `session`/output pointer, -2 on a caught panic.
+///
+/// # Safety
+/// `session` must be a live pointer from `wsm_session_init`.
+/// `out_numerator`/`out_denominator` must each be a valid, writable
+/// `i64` for the duration of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wsm_unwrap_rational(
+    session: *mut Session,
+    word: u64,
+    out_numerator: *mut i64,
+    out_denominator: *mut i64,
+) -> i32 {
+    if session.is_null() || out_numerator.is_null() || out_denominator.is_null() {
+        return -1;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let session = unsafe { &mut *session };
+        match session.boxed.get_rational(word) {
+            Some((n, d)) => {
+                unsafe {
+                    *out_numerator = n;
+                    *out_denominator = d;
+                }
+                0
+            }
+            None => 1,
+        }
+    }));
+    result.unwrap_or(-2)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -450,6 +526,76 @@ mod tests {
                 wsm_unwrap_game_handle(session, crate::word::encode_fixnum(42), &mut out as *mut _),
                 1
             );
+
+            wsm_session_free(session);
+        }
+    }
+
+    #[test]
+    fn rational_wraps_unwraps_and_reduces_through_ffi() {
+        unsafe {
+            let session = wsm_session_init();
+
+            // Already-reduced fraction round-trips unchanged.
+            let mut word: u64 = 0;
+            assert_eq!(wsm_wrap_rational(session, 5, 336, &mut word as *mut u64), 0);
+            let (mut n, mut d) = (0i64, 0i64);
+            assert_eq!(wsm_unwrap_rational(session, word, &mut n as *mut i64, &mut d as *mut i64), 0);
+            assert_eq!((n, d), (5, 336));
+
+            // Reduction happens at construction, per my-lisp's confirmed
+            // invariant -- 10/20 comes back as 2/4 reduced, not stored raw.
+            let mut word2: u64 = 0;
+            assert_eq!(wsm_wrap_rational(session, 10, 20, &mut word2 as *mut u64), 0);
+            let (mut n2, mut d2) = (0i64, 0i64);
+            assert_eq!(wsm_unwrap_rational(session, word2, &mut n2 as *mut i64, &mut d2 as *mut i64), 0);
+            assert_eq!((n2, d2), (1, 2));
+
+            // Negative denominator: sign moves to the numerator, denominator
+            // stays positive, per my-lisp's own stated invariant.
+            let mut word3: u64 = 0;
+            assert_eq!(wsm_wrap_rational(session, 3, -4, &mut word3 as *mut u64), 0);
+            let (mut n3, mut d3) = (0i64, 0i64);
+            assert_eq!(wsm_unwrap_rational(session, word3, &mut n3 as *mut i64, &mut d3 as *mut i64), 0);
+            assert_eq!((n3, d3), (-3, 4));
+
+            // Zero denominator is rejected, not silently accepted.
+            let mut bad_word: u64 = 0;
+            assert_eq!(wsm_wrap_rational(session, 1, 0, &mut bad_word as *mut u64), -1);
+
+            // Wrong-kind word (a Fixnum, not a Rational-carrying Boxed word)
+            // reports 1, not a crash.
+            let (mut wn, mut wd) = (0i64, 0i64);
+            assert_eq!(
+                wsm_unwrap_rational(session, crate::word::encode_fixnum(42), &mut wn as *mut i64, &mut wd as *mut i64),
+                1
+            );
+
+            wsm_session_free(session);
+        }
+    }
+
+    #[test]
+    fn rational_prints_as_n_slash_d_matching_my_lisp_oracle_format() {
+        // Matches conformance.my's own oracle output verbatim:
+        // `(/ 5 6 8 7)` -> "5/336".
+        unsafe {
+            let session = wsm_session_init();
+            unsafe extern "C" fn stub_position(_argc: usize, _argv: *const u64, out: *mut u64) -> i32 {
+                RATIONAL_SESSION.with(|s| wsm_wrap_rational(*s.borrow(), 5, 336, out))
+            }
+            thread_local! {
+                static RATIONAL_SESSION: std::cell::RefCell<*mut Session> = std::cell::RefCell::new(core::ptr::null_mut());
+            }
+            RATIONAL_SESSION.with(|s| *s.borrow_mut() = session);
+
+            let name = CString::new("позиція-x").unwrap();
+            assert_eq!(wsm_register_primitive(session, name.as_ptr(), stub_position), 0);
+            let source = CString::new("(позиція-x)").unwrap();
+            let result_ptr = wsm_eval_string(session, source.as_ptr());
+            let result = CStr::from_ptr(result_ptr).to_str().unwrap().to_string();
+            assert_eq!(result, "5/336");
+            wsm_free_string(result_ptr);
 
             wsm_session_free(session);
         }

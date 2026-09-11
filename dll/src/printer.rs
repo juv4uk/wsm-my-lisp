@@ -47,6 +47,15 @@ fn write_value(word: u64, symbols: &SymbolTable, strings: &BoxedTable, out: &mut
             // exact thing GameHandle's opaqueness is meant to prevent
             // (see word.rs's BoxedValue::GameHandle doc).
             Some(BoxedKind::GameHandle) => out.push_str("#<game-handle>"),
+            // "N/D", matching my-lisp's own Rational print format exactly
+            // (confirmed against conformance.my: `(/ 5 6 8 7)` prints
+            // "5/336") -- byte-identical to their oracle because
+            // BoxedTable::add_rational already reduces at construction,
+            // not just here at print time.
+            Some(BoxedKind::Rational) => {
+                let (n, d) = strings.get_rational(word).expect("kind_of said Rational");
+                let _ = write!(out, "{n}/{d}");
+            }
             None => {
                 let _ = write!(out, "#<unknown-boxed:{:#x}>", word);
             }

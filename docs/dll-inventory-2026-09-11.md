@@ -81,5 +81,13 @@ table above for the file-by-file breakdown issue #15 §2 asks for.
 |-------|--------|
 | A inventory + freeze + guard | done |
 | B destination tree in cyberpunk | done (sync script + ownership) |
-| C adapter builds only from host-runtime | next |
-| D delete or stub this dll/ | after C |
+| C adapter builds only from host-runtime | done — confirmed via `my-lisp-cyberpunk@91d4ae7` (55/55 tests green in `host-runtime`, sync script deleted, sources committed there) and independently verified here: `adapter/CMakeLists.txt` has no build dependency on `wsm-my-lisp` (loads the DLL at runtime via a relative path, agnostic to build source) |
+| D delete this dll/ from wsm-my-lisp | **done, 2026-09-11** — `dll/` removed (14 tracked files), `.github/workflows/dll-tests.yml` removed, `scripts/check-lisp-first-authority.sh` updated to assert `dll/` stays absent |
+
+**Owner directive (2026-09-11, standing) — fulfilled**: the owner said
+once migration was properly complete, delete `dll/` from this repo
+without asking again. Phase C was verified (not just taken on the
+`host-runtime` repo's own word — its `adapter/` build config was read
+directly), and `dll/` was deleted in this same session. Rust host-embed
+code no longer exists anywhere in `wsm-my-lisp`; the sole home for it is
+`my-lisp-cyberpunk/host-runtime` going forward.

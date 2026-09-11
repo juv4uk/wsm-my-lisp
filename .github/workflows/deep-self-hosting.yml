@@ -67,32 +67,3 @@ jobs:
             echo '- bounded recursion witness: N=100000'
             echo '- closure identity witness: executed against asm nucleus'
           } >> "$GITHUB_STEP_SUMMARY"
-
-  windows-dll-deep:
-    name: Windows DLL release falsification
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust stable (MSVC)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - name: Run complete DLL tests in release mode
-        run: cargo test --manifest-path dll/Cargo.toml --locked --target x86_64-pc-windows-msvc --release --all-targets --verbose
-
-      - name: Build release cdylib
-        run: cargo build --manifest-path dll/Cargo.toml --locked --target x86_64-pc-windows-msvc --release --verbose
-
-      - name: Record evidence strength
-        if: always()
-        shell: pwsh
-        run: |
-          @'
-          ### Windows DLL deep evidence
-          - complete DLL test surface: attempted in release mode
-          - x86_64-pc-windows-msvc cdylib: built in release mode
-          - semantic verdict remains separate from performance diagnostics
-          '@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append

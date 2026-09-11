@@ -1,4 +1,7 @@
-use wsm_os_target::{Tag, CANONICAL_T, NIL, SYMBOL_ID_MAX, TAG_BITS, TAG_MASK};
+use wsm_os_target::{
+    CLOSURE_ALIGNMENT, CLOSURE_BYTES, CLOSURE_DEFINITION_ID_OFFSET,
+    CLOSURE_ENVIRONMENT_REF_OFFSET, CANONICAL_T, NIL, SYMBOL_ID_MAX, TAG_BITS, TAG_MASK, Tag,
+};
 
 const SYSV_NUCLEUS: &str = include_str!("../../asm/nucleus.s");
 const WIN64_NUCLEUS: &str = include_str!("../../asm/nucleus-win64.s");
@@ -95,6 +98,47 @@ fn authority_violations(source: &str) -> Vec<String> {
                 }
             }
             None => violations.push(format!("cannot inspect {label} body")),
+        }
+    }
+
+    // Closure support is optional per nucleus today, but once a substrate
+    // exports it, every representation constant must remain a mechanical
+    // projection of the ratified target contract rather than local semantics.
+    if code.contains("wsm_closure_new:") {
+        match equ_u64(&code, "TAG_CLOSURE") {
+            Some(value) if value == Tag::Closure as u64 => {}
+            other => violations.push(format!(
+                "TAG_CLOSURE drift: {other:?}, contract={}",
+                Tag::Closure as u64
+            )),
+        }
+        for (name, expected) in [
+            ("CLOSURE_ALIGNMENT", CLOSURE_ALIGNMENT as u64),
+            ("CLOSURE_BYTES", CLOSURE_BYTES as u64),
+            (
+                "CLOSURE_DEFINITION_ID_OFFSET",
+                CLOSURE_DEFINITION_ID_OFFSET as u64,
+            ),
+            (
+                "CLOSURE_ENVIRONMENT_REF_OFFSET",
+                CLOSURE_ENVIRONMENT_REF_OFFSET as u64,
+            ),
+        ] {
+            match equ_u64(&code, name) {
+                Some(value) if value == expected => {}
+                other => violations.push(format!(
+                    "{name} drift: {other:?}, contract={expected}"
+                )),
+            }
+        }
+        for label in [
+            "wsm_closure_new",
+            "wsm_closure_definition",
+            "wsm_closure_environment",
+        ] {
+            if function_body(&code, label).is_none() {
+                violations.push(format!("cannot inspect ratified closure ABI function {label}"));
+            }
         }
     }
 

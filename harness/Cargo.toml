@@ -28,3 +28,6 @@ path = "src/harness_eq.rs"
 name = "harness-countdown"
 path = "src/harness_countdown.rs"
 
+[[bin]]
+name = "harness-closure"
+path = "src/harness_closure.rs"

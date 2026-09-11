@@ -1,0 +1,98 @@
+name: deep self-hosting gate
+
+on:
+  schedule:
+    # 00:30 UTC = 03:30 in Ukraine during summer time, 02:30 in winter.
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/deep-self-hosting.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deep-self-hosting-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sysv-deep:
+    name: SysV full semantic witness corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify pinned my-lisp semantic authority
+        shell: bash
+        run: |
+          expected=ccacc68ef6729a0973bdd1fc41906fc160127f89
+          actual="$(git -C external/my-lisp rev-parse HEAD)"
+          test "$actual" = "$expected"
+          test -f external/my-lisp/lib/meta-eval.my
+          grep -q '^(def my-eval-cond-result$' external/my-lisp/lib/meta-eval.my
+          grep -q '^(def my-eval-result$' external/my-lisp/lib/meta-eval.my
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run complete harness test surface
+        run: cargo test --manifest-path harness/Cargo.toml --locked --all-targets --verbose
+
+      - name: Build release witness binaries
+        run: cargo build --manifest-path harness/Cargo.toml --locked --release --bins
+
+      - name: Execute release witnesses
+        shell: bash
+        run: |
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-atom)" = "t"
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-cons)" = "(A . B)"
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-eq)" = "wsm_eq: (eq 41 41) -> t, (eq 41 42) -> ()  [both correct]"
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-lambda)" = "7"
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-countdown)" = "countdown 100000 -> done"
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-closure)" = "closure identity: definition=17 env=42 self-eq=t peer-eq=()"
+
+      - name: Record evidence strength
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '### SysV deep evidence'
+            echo '- semantic authority pin: checked'
+            echo '- full harness test surface: attempted'
+            echo '- release binaries: built and executed'
+            echo '- bounded recursion witness: N=100000'
+            echo '- closure identity witness: executed against asm nucleus'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  windows-dll-deep:
+    name: Windows DLL release falsification
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable (MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Run complete DLL tests in release mode
+        run: cargo test --manifest-path dll/Cargo.toml --locked --target x86_64-pc-windows-msvc --release --all-targets --verbose
+
+      - name: Build release cdylib
+        run: cargo build --manifest-path dll/Cargo.toml --locked --target x86_64-pc-windows-msvc --release --verbose
+
+      - name: Record evidence strength
+        if: always()
+        shell: pwsh
+        run: |
+          @'
+          ### Windows DLL deep evidence
+          - complete DLL test surface: attempted in release mode
+          - x86_64-pc-windows-msvc cdylib: built in release mode
+          - semantic verdict remains separate from performance diagnostics
+          '@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append

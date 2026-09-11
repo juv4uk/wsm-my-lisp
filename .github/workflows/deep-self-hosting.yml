@@ -5,6 +5,9 @@ on:
     # 00:30 UTC = 03:30 in Ukraine during summer time, 02:30 in winter.
     - cron: "30 0 * * *"
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/deep-self-hosting.yml"
 
 permissions:
   contents: read

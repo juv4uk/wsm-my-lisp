@@ -15,11 +15,13 @@ on:
     paths:
       - "dll/**"
       - "asm/nucleus-win64.s"
+      - "external/my-lisp"
       - ".github/workflows/dll-tests.yml"
   pull_request:
     paths:
       - "dll/**"
       - "asm/nucleus-win64.s"
+      - "external/my-lisp"
       - ".github/workflows/dll-tests.yml"
   workflow_dispatch:
 
@@ -30,7 +32,14 @@ jobs:
       run:
         working-directory: dll
     steps:
+      # submodules: true is required now -- dll/build.rs reads
+      # external/my-lisp/lib/surface/semantic-registry.wsm directly at
+      # build time (generates eval.rs's Canon-spelling constants from it,
+      # rather than a hand-copied list) and panics if that submodule path
+      # is empty, per this repo's own fail-closed convention.
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install Rust (stable, x86_64-pc-windows-msvc)
         uses: dtolnay/rust-toolchain@stable

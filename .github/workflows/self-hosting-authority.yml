@@ -6,12 +6,18 @@ on:
     paths:
       - "asm/**"
       - "harness/**"
+      - "scripts/**"
+      - "docs/AUTHORITY.md"
+      - "docs/dll-inventory-2026-09-11.md"
       - "external/my-lisp"
       - ".github/workflows/self-hosting-authority.yml"
   pull_request:
     paths:
       - "asm/**"
       - "harness/**"
+      - "scripts/**"
+      - "docs/AUTHORITY.md"
+      - "docs/dll-inventory-2026-09-11.md"
       - "external/my-lisp"
       - ".github/workflows/self-hosting-authority.yml"
   workflow_dispatch:
@@ -23,6 +29,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Lisp-first authority guard (P0 #15)
+        run: bash scripts/check-lisp-first-authority.sh
 
       - name: Verify pinned my-lisp semantic authority
         shell: bash

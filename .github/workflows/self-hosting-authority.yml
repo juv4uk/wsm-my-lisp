@@ -69,3 +69,8 @@ jobs:
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-countdown)" = "countdown 100000 -> done"
+
+      - name: Execute Stage2 closure identity witness
+        shell: bash
+        run: |
+          test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-closure)" = "closure identity: definition=17 env=42 self-eq=t peer-eq=()"

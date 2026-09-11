@@ -36,7 +36,7 @@ jobs:
       - name: Verify pinned my-lisp semantic authority
         shell: bash
         run: |
-          expected=ccacc68ef6729a0973bdd1fc41906fc160127f89
+          expected=6d71151c7b3fd1825f4523087b176bdbe45ec809
           actual="$(git -C external/my-lisp rev-parse HEAD)"
           test "$actual" = "$expected"
           test -f external/my-lisp/lib/meta-eval.my

@@ -1,49 +1,27 @@
-# `dll/` — win64 host-embeddable WSM runtime
+# `dll/` — Windows host embed (**mirror**)
 
-> **Authority note (2026-09-11, owner P0 #15)**  
-> This directory is a **Cyberpunk host embed** path, not the self-hosting
-> core of `wsm-my-lisp`. **New Lisp language capabilities must not be
-> added here.** Allowed: bugfix, security, ABI compatibility for the
-> existing vertical slice. Growth of eval/reader/closures/meta-eval
-> belongs on the Lisp→asm self-hosting line or, after migration, in the
-> Cyberpunk/host destination. See [`../docs/dll-inventory-2026-09-11.md`](../docs/dll-inventory-2026-09-11.md).
+> **2026-09-11 — canonical home moved**  
+> **https://github.com/juv4uk/my-lisp-cyberpunk/tree/main/host-runtime**
+>
+> This directory is a **compatibility mirror** until Cyberpunk adapter/CI
+> build only from `my-lisp-cyberpunk/host-runtime` (migration Phase C/D).
+> Prefer landing host/FFI fixes **there**. Self-hosting core of *this* repo
+> remains `asm/` + `harness/` (Lisp-first, no Rust eval growth here).
 
-Host-neutral Lisp runtime for embedding this repo's WSM nucleus
-(`asm/nucleus-win64.s`) into a Windows process via a stable C ABI. Built
-for the my-lisp-cyberpunk embedding effort, but contains no game- or
-RED4ext-specific code — this crate must build without a Cyberpunk/RED4ext
-SDK. The RED4ext-facing adapter lives in `my-lisp-cyberpunk/adapter/`.
+See `docs/dll-inventory-2026-09-11.md` and `docs/AUTHORITY.md`.
 
-## Embed contract
+Host-neutral Lisp runtime linking `asm/nucleus-win64.s` into a cdylib for
+Cyberpunk. No RED4ext types in this crate.
 
-### Threading: single-threaded per process
+## Freeze (still in force on this mirror)
 
-`asm/nucleus-win64.s` arena is one global unsynchronized bump allocator.
-Call every `wsm_*` FFI entry from **one thread only** per process/session
-lifetime. `dll/.cargo/config.toml` sets `RUST_TEST_THREADS=1` for tests;
-that does not make the arena thread-safe.
+No new Lisp language capabilities in Rust here. Bugfix / security /
+compat only — and prefer the cyberpunk tree.
 
-### Session lifetime
-
-- `wsm_session_init` / `wsm_session_free` — own exactly once.
-- Strings from `wsm_eval_string` → `wsm_free_string` only.
-- `wsm_wrap_game_handle` / unwrap — opaque tokens; caller owns real handles.
-
-### Panics across FFI
-
-Host callbacks must not panic across `extern "C"` (abort). See `ffi.rs`.
-
-## Word encoding
-
-From `wsm-os-target` / `wsm-target-contract` — not hand-copied policy.
-
-## Testing
+## Build
 
 ```sh
 cargo test --target x86_64-pc-windows-msvc
 ```
 
-## Performance / arena
-
-See historical notes in git history: per-eval `wsm_arena_reset` after the
-old 128-call ceiling. Limits documented in `ffi.rs`.
+Prefer building from `my-lisp-cyberpunk/host-runtime` after sync.

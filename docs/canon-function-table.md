@@ -35,8 +35,8 @@ here (my-lisp owns that file; this table only projects it).
 | canonical identity | semantic id | surfaces | asm symbol | support status | provenance | executable witness |
 |---|---|---|---|---|---|---|
 | cons | 0004 | `en cons`, `uk сполучити`, `sa saṃyuj`, `sym :` | `wsm_cons` | native | hand-written, this repo, Stage 0 | `harness-cons` |
-| car | 0005 | `en car`, `uk перше`, `sa ādi`, `sym :п` | `wsm_car` | native | hand-written, this repo, Stage 0 | `harness-cons` (calls `wsm_car` on its result) |
-| cdr | 0006 | `en cdr`, `uk решта`, `sa śeṣa`, `sym :р` | `wsm_cdr` | native | hand-written, this repo, Stage 0 | `harness-cons` (calls `wsm_cdr` on its result) |
+| car | 0005 | `en car`, `uk перше`, `sa ādi`, `sym :п` | `wsm_car` | native | hand-written, this repo, Stage 0 (happy path) / Stage 2 (Type-error fail-closed, 2026-09-12) | `harness-cons` (calls `wsm_car` on its result) + `harness-car-type-trigger`/`type_error_path.rs` (Type-error abort, subprocess-checked) |
+| cdr | 0006 | `en cdr`, `uk решта`, `sa śeṣa`, `sym :р` | `wsm_cdr` | native | hand-written, this repo, Stage 0 (happy path) / Stage 2 (Type-error fail-closed, 2026-09-12) | `harness-cons` (calls `wsm_cdr` on its result); the abort path is proven via `wsm_car`'s identical trigger since both primitives share the same tag check and `wsm_fail` jump |
 | eq | 0003 | `en eq`, `uk тотожне?`, `sa abheda`, `sym =?` | `wsm_eq` | native | hand-written, this repo, Stage 0 (Fixnum witness) / Stage 2 (Symbol witness, 2026-09-12) | `harness-eq` (Fixnum) + `harness-eq-symbol` (Symbol, closes the gap noted below) |
 | atom | 0002 | `en atom`, `uk атом?`, `sa aṇu`, `sym .?` | `wsm_atom` | native | hand-written, this repo, Stage 0 (positive case) / Stage 2 (negative case, 2026-09-12) | `harness-atom` (`()` is an atom) + `harness-atom-cons` (an allocated `Cons` is not) |
 | quote | 0001 | `en quote`, `uk як-є`, `sa svarūpa`, `sym '` | — | not-in-scope | dispatch lived in `dll/eval.rs`, deleted at Phase D (`1e1549a`); moved to `my-lisp-cyberpunk/host-runtime/build.rs` + `cml`'s compiler | none in this repo — CML resolves `quote` before lowering reaches `asm/nucleus.s`; nucleus never sees the surface spelling |
@@ -61,6 +61,22 @@ here (my-lisp owns that file; this table only projects it).
   `wsm_atom`'s own asm while building this table — its branch on
   `TAG_MASK` clearly has two live paths, and only one had ever been
   executed by any harness.
+- ~~`wsm_car`/`wsm_cdr` had no type check at all — a non-Cons word
+  (Fixnum, Nil, Symbol, Closure) was unconditionally dereferenced as a
+  pointer, which is undefined behavior, not just an undocumented
+  gap.~~ **Fixed 2026-09-12**: both primitives (in `asm/nucleus.s` and
+  the mirrored `asm/nucleus-win64.s`) now check `TAG_MASK` before
+  dereferencing and abort via `wsm_fail`/`wsm_fail_win64` with
+  `ErrorCode::Type` on any non-Cons input, matching my-lisp's own
+  oracle (`(car 5)` and `(car (quote ()))` both require a `Type`
+  error). Found the same way as the other two gaps this session — by
+  re-reading the primitive's own asm while extending this table, not
+  from a bug report. This is a correctness fix, not only a coverage
+  fix: before it, a compiled program calling `car`/`cdr` on a
+  wrong-typed value could read arbitrary memory instead of failing
+  predictably. `harness-car-type-trigger` +
+  `harness/tests/type_error_path.rs` prove the abort actually happens
+  (subprocess exit code 97), not just that the asm assembles.
 - **No asm projection exists for `quote`/`cond` in this repo, by
   design** — those are CML-lowering-time forms, resolved away before
   `asm/nucleus.s` ever runs; a `wsm_cond`/`wsm_quote` primitive would

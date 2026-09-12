@@ -78,20 +78,44 @@ wsm_cons_oom:
     addq    $40, %rsp
     ret                              /* unreached if wsm_fail_win64 diverges as documented */
 
-/* wsm_car(context [rcx, ignored], pair: Word [rdx]) -> Word */
+/* wsm_car(context [rcx, ignored], pair: Word [rdx]) -> Word
+ *
+ * Same fail-closed reasoning as nucleus.s's wsm_car: Tag::Cons is
+ * zero, so any word with a nonzero TAG_MASK bit is not a pair and
+ * must not be dereferenced. my-lisp's oracle requires (car 5) and
+ * (car (quote ())) to raise a Type error. */
     .globl wsm_car
 wsm_car:
+    testq   $TAG_MASK, %rdx
+    jnz     wsm_car_type_error
     movq    %rdx, %rax
-    andq    $-8, %rax               /* strip any stray tag bits defensively */
     movq    0(%rax), %rax
     ret
+wsm_car_type_error:
+    subq    $40, %rsp               /* Win64 16-alignment, see wsm_cons_oom above */
+    movl    $2, %ecx                 /* ErrorCode::Type = 2 (arg1: code) */
+    xorl    %edx, %edx
+    xorl    %r8d, %r8d
+    call    wsm_fail_win64
+    addq    $40, %rsp
+    ret
 
-/* wsm_cdr(context [rcx, ignored], pair: Word [rdx]) -> Word */
+/* wsm_cdr(context [rcx, ignored], pair: Word [rdx]) -> Word -- mirrors
+ * wsm_car's reasoning above for the cdr offset. */
     .globl wsm_cdr
 wsm_cdr:
+    testq   $TAG_MASK, %rdx
+    jnz     wsm_cdr_type_error
     movq    %rdx, %rax
-    andq    $-8, %rax
     movq    8(%rax), %rax
+    ret
+wsm_cdr_type_error:
+    subq    $40, %rsp
+    movl    $2, %ecx                 /* ErrorCode::Type = 2 (arg1: code) */
+    xorl    %edx, %edx
+    xorl    %r8d, %r8d
+    call    wsm_fail_win64
+    addq    $40, %rsp
     ret
 
 /* wsm_eq(context [rcx, ignored], left: Word [rdx], right: Word [r8]) -> Word */

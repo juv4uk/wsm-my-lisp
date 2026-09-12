@@ -42,6 +42,13 @@
     .equ TAG_CLOSURE, 5
     .equ TAG_MASK,    7
 
+    /* wsm_os_target::ErrorCode -- mechanical projection, same pattern as
+     * SYM_T_WORD above. Only the two variants this nucleus actually raises
+     * are named here; harness/tests/semantic_authority.rs checks these
+     * against the pinned target contract. */
+    .equ ERR_OUT_OF_MEMORY, 1
+    .equ ERR_TYPE,          2
+
     /* Механічна проєкція wsm_os_target::ClosureDescriptor. Значення нижче
      * перевіряються semantic_authority.rs проти pinned target contract. */
     .equ CLOSURE_ALIGNMENT,             16
@@ -69,30 +76,53 @@ wsm_cons:
     movq    %rcx, wsm_arena_next(%rip)
     ret                             /* %rax already holds the tagged (tag=0) pointer */
 wsm_cons_oom:
-    movl    $1, %esi                /* ErrorCode::OutOfMemory = 1 */
+    movl    $ERR_OUT_OF_MEMORY, %esi
     xorl    %edx, %edx
     xorl    %ecx, %ecx
     jmp     wsm_fail
     .size wsm_cons, . - wsm_cons
 
-/* wsm_car(context, pair: Word) -> Word */
+/* wsm_car(context, pair: Word) -> Word
+ *
+ * Tag::Cons is zero, so a real Cons word has all TAG_MASK bits clear.
+ * Any other tag (Nil, Fixnum, Symbol, Closure, Capability) is not a
+ * pair -- dereferencing its payload as a pointer would read arbitrary
+ * memory (a small shifted integer for Fixnum, address 0 for Nil).
+ * my-lisp's own oracle requires (car 5) and (car (quote ())) to raise
+ * a Type error, not silently return garbage or segfault; this check
+ * is what makes that true here too, using the same bounded-abort
+ * mechanism wsm_cons_oom already established rather than inventing a
+ * second failure convention. */
     .globl wsm_car
     .type wsm_car, @function
 wsm_car:
+    testq   $TAG_MASK, %rsi
+    jnz     wsm_car_type_error
     movq    %rsi, %rax
-    andq    $-8, %rax               /* strip any stray tag bits defensively */
     movq    0(%rax), %rax
     ret
+wsm_car_type_error:
+    movl    $ERR_TYPE, %esi
+    xorl    %edx, %edx
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
     .size wsm_car, . - wsm_car
 
-/* wsm_cdr(context, pair: Word) -> Word */
+/* wsm_cdr(context, pair: Word) -> Word -- see wsm_car's comment above,
+ * identical reasoning, mirrored for the cdr offset. */
     .globl wsm_cdr
     .type wsm_cdr, @function
 wsm_cdr:
+    testq   $TAG_MASK, %rsi
+    jnz     wsm_cdr_type_error
     movq    %rsi, %rax
-    andq    $-8, %rax
     movq    8(%rax), %rax
     ret
+wsm_cdr_type_error:
+    movl    $ERR_TYPE, %esi
+    xorl    %edx, %edx
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
     .size wsm_cdr, . - wsm_cdr
 
 /* wsm_eq(context, left: Word, right: Word) -> Word */

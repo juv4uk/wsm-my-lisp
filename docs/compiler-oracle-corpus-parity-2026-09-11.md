@@ -96,15 +96,25 @@ arithmetic, macros) and are out of current scope per
 ## Parity gate note (#4 acceptance: "deliberate mutation of one
 result/error/provenance field is caught")
 
-No automated gate exists yet enforcing this table stays honest as
-`conformance.my` changes upstream — that would require the
-build-time-generated-projection mechanism this repo's
-`docs/canon-dispatch-migration-plan.md` already names as the
-standing discipline (never hand-copy a fact the registry/fixture file
-owns). A future increment could generate this table's `status` column
-mechanically from a `(wsm-native . (...))`-shaped key on each fixture
-record, per `docs/archive/superseded/shared-oracle-corpus-fixture-format-proposal.md`'s
-original proposal — deferred here, not attempted in this document,
-since it needs my-lisp's agreement on the exact key shape (my-lisp
-chose `compiler-corpus . t` as a boolean marker for #67, not yet the
-richer per-consumer status object that proposal sketched).
+**Partially closed, 2026-09-12**:
+`harness/tests/compiler_corpus_parity.rs` mechanically checks that
+every `(compiler-corpus . t)` fixture in `conformance.my` still has the
+exact `expr`/`expected`/`error` this table's rows document — it
+fails closed (wrong count, missing fixture, or changed outcome) if
+my-lisp mutates a tagged fixture without this table being updated to
+match. Run explicitly in the fast PR-gate workflow
+(`self-hosting-authority.yml`), not just the nightly deep gate, so
+drift is caught on every PR.
+
+**Still not done**: the test's own `documented_fixtures()` list is
+hand-copied from this table (line-based text extraction, not a
+build-time-generated projection) — a real duplication this repo's own
+`docs/canon-dispatch-migration-plan.md` names as the discipline to
+avoid, accepted here as a smaller, honest gap than having no
+mechanical check at all. A future increment could generate that list
+from `(wsm-native . (...))`-shaped key on each fixture record instead,
+per `docs/archive/superseded/shared-oracle-corpus-fixture-format-proposal.md`'s
+original sketch — deferred, since it needs my-lisp's agreement on the
+exact key shape (my-lisp chose `compiler-corpus . t` as a boolean
+marker for #67, not yet the richer per-consumer status object that
+proposal sketched).

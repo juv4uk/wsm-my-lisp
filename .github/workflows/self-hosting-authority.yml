@@ -50,6 +50,10 @@ jobs:
         run: |
           cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority
 
+      - name: Check compiler-corpus parity doc hasn't silently drifted (wsm-my-lisp#4)
+        run: |
+          cargo test --manifest-path harness/Cargo.toml --locked --test compiler_corpus_parity
+
       - name: Compile all SysV witness binaries
         run: |
           cargo test --manifest-path harness/Cargo.toml --locked --no-run

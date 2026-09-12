@@ -1,3 +1,8 @@
+> **ARCHIVED (2026-09-12), experiment/proposal.** These proposals were
+> addressed to `my-lisp` for that repo to evaluate and decide — no code
+> was written here or there from this document. Non-normative; does not
+> describe any current requirement of this repo.
+
 # Optimization proposals for my-lisp — based on my-lisp's own measured findings
 
 Status: **proposals only, no code written**, per the owner's explicit

@@ -1,3 +1,11 @@
+> **ARCHIVED (2026-09-12), superseded.** my-lisp resolved #67 with a
+> simpler mechanism than this proposal's `wsm-native` key sketch — a
+> plain boolean `(compiler-corpus . t)` marker, not the richer
+> per-consumer status object proposed here. Superseded-by:
+> [`docs/compiler-oracle-corpus-parity-2026-09-11.md`](../../compiler-oracle-corpus-parity-2026-09-11.md),
+> which documents what my-lisp actually built and this repo's own
+> resulting parity table (wsm-my-lisp#4).
+
 # Shared oracle corpus fixture format — proposal, ground-prep for my-lisp#67
 
 Status: **proposal only, not implemented, not requested by my-lisp yet** --

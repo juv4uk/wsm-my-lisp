@@ -1,3 +1,10 @@
+> **ARCHIVED (2026-09-12), historical.** This document's own body
+> already tracks its subject moving out of this repo (§ "Status update
+> #2": the plugin skeleton was extracted to `my-lisp-cyberpunk/adapter`).
+> Non-normative — kept for the RED4ext research it recorded, not as a
+> current description of this repo. Current RED4ext/adapter work lives
+> entirely in `my-lisp-cyberpunk`.
+
 # Game injection plan
 
 Status update #2 (2026-09-10, later same day): the RED4ext plugin skeleton

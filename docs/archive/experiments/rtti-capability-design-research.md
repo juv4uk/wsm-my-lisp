@@ -1,3 +1,10 @@
+> **ARCHIVED (2026-09-12), experiment/research.** Never implemented in
+> this repo; the tag-design question it raises for
+> `wsm-target-contract` was never resolved here. Non-normative — the
+> host-neutral half of any future RTTI capability design should be
+> re-derived against the current `wsm-target-contract`/`Tag::Boxed`
+> state rather than assumed unchanged from this snapshot.
+
 # RTTI capability design — research only, no implementation
 
 Status: **ground-preparation**, per the same discipline as

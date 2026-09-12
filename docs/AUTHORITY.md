@@ -26,4 +26,4 @@ Principle: if logic can live in Lisp, put it in Lisp. Asm only when the machine 
 | CML | Механізм компілятора |
 | my-lisp-cyberpunk | Продуктова поверхня; місце для host Rust |
 
-Детальний inventory: [`dll-inventory-2026-09-11.md`](dll-inventory-2026-09-11.md).
+Детальний inventory (архів, dll/ уже видалено): [`archive/completed-plans/dll-inventory-2026-09-11.md`](archive/completed-plans/dll-inventory-2026-09-11.md).

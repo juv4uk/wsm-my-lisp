@@ -1,3 +1,10 @@
+> **ARCHIVED (2026-09-12), completed-plan.** `dll/` no longer exists in
+> this repo — Phase D of the migration this document tracks was
+> completed at commit `1e1549a` (2026-09-11). This is a non-normative
+> historical record of how the migration happened, not current
+> guidance. Current authority: [`docs/AUTHORITY.md`](../../AUTHORITY.md).
+> Superseded-by: `docs/AUTHORITY.md`'s `dll/` row.
+
 # dll/ inventory — P0 #15 (2026-09-11)
 
 **Canonical host runtime home (Phase B):**

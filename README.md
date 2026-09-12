@@ -22,11 +22,14 @@ fixtures, parity, CML admission, and native target execution.
 4. Rust      — NOT a runtime growth direction in this repo
 ```
 
-Rust host embed work (`dll/`: reader, eval, FFI session) exists for
-**Cyberpunk integration** and is **frozen** for new Lisp capabilities.
-Migration destination: `my-lisp-cyberpunk` (or a dedicated host-runtime
-repo). Inventory and policy: [`docs/dll-inventory-2026-09-11.md`](docs/dll-inventory-2026-09-11.md),
-[`docs/AUTHORITY.md`](docs/AUTHORITY.md).
+Rust host embed work (formerly `dll/`: reader, eval, FFI session) has
+fully migrated to **`my-lisp-cyberpunk/host-runtime`**; `dll/` was
+deleted from this repo 2026-09-11 (Phase D of the migration). Policy
+and the archived migration record:
+[`docs/AUTHORITY.md`](docs/AUTHORITY.md),
+[`docs/archive/completed-plans/dll-inventory-2026-09-11.md`](docs/archive/completed-plans/dll-inventory-2026-09-11.md).
+
+**Documentation entry point: [`docs/CURRENT.md`](docs/CURRENT.md).**
 
 Self-hosting core path remains:
 
@@ -73,7 +76,8 @@ per inventory doc; QEMU later.
 **Lisp-first.** Self-hosting ядро — `asm/` + `harness/`.  
 `dll/` — тимчасовий Windows embed для Cyberpunk; **без нових Lisp
 capabilities у Rust**; міграція → Cyberpunk track.  
-Деталі: `docs/dll-inventory-2026-09-11.md`, `docs/AUTHORITY.md`.
+`dll/` видалено 2026-09-11 (Phase D). Деталі: `docs/archive/completed-plans/dll-inventory-2026-09-11.md`, `docs/AUTHORITY.md`.
+Точка входу в документацію: `docs/CURRENT.md`.
 
 ## Ліцензія
 

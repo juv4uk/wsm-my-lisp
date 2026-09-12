@@ -103,7 +103,7 @@ build-time-generated-projection mechanism this repo's
 standing discipline (never hand-copy a fact the registry/fixture file
 owns). A future increment could generate this table's `status` column
 mechanically from a `(wsm-native . (...))`-shaped key on each fixture
-record, per `docs/shared-oracle-corpus-fixture-format-proposal.md`'s
+record, per `docs/archive/superseded/shared-oracle-corpus-fixture-format-proposal.md`'s
 original proposal — deferred here, not attempted in this document,
 since it needs my-lisp's agreement on the exact key shape (my-lisp
 chose `compiler-corpus . t` as a boolean marker for #67, not yet the

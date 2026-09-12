@@ -19,7 +19,7 @@ ok() { echo "AUTHORITY OK: $*"; }
 [[ -f asm/nucleus.s ]] || fail "missing asm/nucleus.s"
 [[ -f asm/nucleus-win64.s ]] || fail "missing asm/nucleus-win64.s"
 [[ -f docs/AUTHORITY.md ]] || fail "missing docs/AUTHORITY.md"
-[[ -f docs/dll-inventory-2026-09-11.md ]] || fail "missing dll inventory"
+[[ -f docs/archive/completed-plans/dll-inventory-2026-09-11.md ]] || fail "missing archived dll inventory"
 
 # --- 2. No Rust semantic modules anywhere (dll/ is gone; harness/ stays test-only) ---
 # harness/ is witness drivers (links asm), not an evaluator.
@@ -46,7 +46,21 @@ ok "no eval/reader/printer/ffi/word.rs anywhere in this repo"
 
 ok "dll/ absent — Phase D complete"
 
-# --- 4. Self-hosting CI must not reference dll as core authority ---
+# --- 4. Documentation authority: one active entry point, archive stays non-normative ---
+[[ -f docs/CURRENT.md ]] || fail "missing docs/CURRENT.md (documentation entry point, wsm-my-lisp#19)"
+[[ -f docs/archive/README.md ]] || fail "missing docs/archive/README.md (non-normative warning)"
+
+# Archived docs must self-identify as archived (cheap, mechanical check;
+# whether an active doc's claims wrongly rest on archived content is a
+# semantic judgment this script does not attempt).
+for f in docs/archive/*/*.md; do
+  [[ -f "$f" ]] || continue
+  grep -qi 'ARCHIVED' "$f" || fail "archived doc missing ARCHIVED marker: $f"
+done
+
+ok "docs/CURRENT.md present, archive docs self-identify as archived"
+
+# --- 5. Self-hosting CI must not reference dll as core authority ---
 if [[ -f .github/workflows/self-hosting-authority.yml ]]; then
   if grep -E '^\s*- "dll/' .github/workflows/self-hosting-authority.yml >/dev/null 2>&1; then
     fail "self-hosting-authority.yml must not path-trigger on dll/ (deleted)"

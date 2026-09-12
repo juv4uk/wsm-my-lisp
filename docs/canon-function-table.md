@@ -41,7 +41,7 @@ here (my-lisp owns that file; this table only projects it).
 | atom | 0002 | `en atom`, `uk атом?`, `sa aṇu`, `sym .?` | `wsm_atom` | native | hand-written, this repo, Stage 0 (positive case) / Stage 2 (negative case, 2026-09-12) | `harness-atom` (`()` is an atom) + `harness-atom-cons` (an allocated `Cons` is not) |
 | quote | 0001 | `en quote`, `uk як-є`, `sa svarūpa`, `sym '` | — | not-in-scope | dispatch lived in `dll/eval.rs`, deleted at Phase D (`1e1549a`); moved to `my-lisp-cyberpunk/host-runtime/build.rs` + `cml`'s compiler | none in this repo — CML resolves `quote` before lowering reaches `asm/nucleus.s`; nucleus never sees the surface spelling |
 | cond | 0007 | `en cond`, `uk за-умовою`, `sa anukrama`, `sym ?:` | — | witnessed-only, not yet in this repo | same as `quote`: dispatch is CML's job, not the nucleus's; the fixture `(cond (() (quote wrong)) (t (quote right)))` is `pending` in `docs/compiler-oracle-corpus-parity-2026-09-11.md` (`cml` actively compiling it) | none yet — will be `harness-cond` once `cml` lands the compiled entry |
-| lambda (application) | 0010 | `en lambda`, `uk функція` | `wsm_closure_new`, `wsm_closure_definition`, `wsm_closure_environment` | native (identity/ABI only, not general application) | hand-written, this repo, Stage 2 (`docs/ROADMAP.md`) | `harness-lambda` (pure identity fixture, no nucleus call needed) + `harness-closure` (Stage2 closure-identity ABI witness) |
+| lambda (application) | 0010 | `en lambda`, `uk функція` | `wsm_closure_new`, `wsm_closure_definition`, `wsm_closure_environment` | native (identity/ABI only, not general application); accessor Type-error paths witnessed 2026-09-12 | hand-written, this repo, Stage 2 (`docs/ROADMAP.md`) | `harness-lambda` (pure identity fixture) + `harness-closure` (identity ABI, happy path) + `harness-closure-type-trigger`/`type_error_path.rs` (Type-error abort on a non-Closure word) |
 
 ## Honest gaps, named per this issue's own discipline ("невідомий ID fail-closed")
 
@@ -77,6 +77,15 @@ here (my-lisp owns that file; this table only projects it).
   predictably. `harness-car-type-trigger` +
   `harness/tests/type_error_path.rs` prove the abort actually happens
   (subprocess exit code 97), not just that the asm assembles.
+- **`wsm_closure_definition`/`wsm_closure_environment`'s `AbiViolation`
+  branch remains unwitnessed, by deliberate choice, not oversight.**
+  Their `Type` branch (a non-Closure word) is now proven the same way
+  as `wsm_car`'s (`harness-closure-type-trigger`), but triggering
+  `AbiViolation` (a Closure-tagged word whose stripped pointer is
+  misaligned or outside the closure arena) safely from Rust would mean
+  fabricating a fake pointer value — a different, riskier kind of test
+  than calling a primitive with an ordinary wrong-typed value. Named
+  here rather than silently left out.
 - **No asm projection exists for `quote`/`cond` in this repo, by
   design** — those are CML-lowering-time forms, resolved away before
   `asm/nucleus.s` ever runs; a `wsm_cond`/`wsm_quote` primitive would

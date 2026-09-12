@@ -21,6 +21,10 @@ name = "harness-car-type-trigger"
 path = "src/harness_car_type_trigger.rs"
 
 [[bin]]
+name = "harness-closure-type-trigger"
+path = "src/harness_closure_type_trigger.rs"
+
+[[bin]]
 name = "harness-lambda"
 path = "src/harness_lambda.rs"
 

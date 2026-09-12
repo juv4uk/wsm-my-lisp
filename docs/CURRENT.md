@@ -24,6 +24,10 @@ historical context only, never a source of requirements.
    - [`compiler-oracle-corpus-parity-2026-09-11.md`](compiler-oracle-corpus-parity-2026-09-11.md)
      — the live three-column parity table for `wsm-my-lisp#4`, updated
      as fixtures move from `pending`/`related` to `confirmed`.
+   - [`canon-function-table.md`](canon-function-table.md) — the
+     machine-readable function table for `wsm-my-lisp#16`: every Canon
+     identity this repo implements or witnesses on `asm/nucleus.s`,
+     with honest gaps named.
 5. **Tests/evidence** — `harness/`'s executed witness binaries are the
    proof that a given stage of `ROADMAP.md` actually holds on real
    `asm/nucleus.s` execution, not just on paper.

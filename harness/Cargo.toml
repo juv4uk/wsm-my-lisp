@@ -47,3 +47,7 @@ path = "src/harness_countdown.rs"
 [[bin]]
 name = "harness-closure"
 path = "src/harness_closure.rs"
+
+[[bin]]
+name = "harness-cond"
+path = "src/harness_cond.rs"

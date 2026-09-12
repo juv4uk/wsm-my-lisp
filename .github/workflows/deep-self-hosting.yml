@@ -56,6 +56,7 @@ jobs:
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-lambda)" = "7"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-countdown)" = "countdown 100000 -> done"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-closure)" = "closure identity: definition=17 env=42 self-eq=t peer-eq=()"
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-cond)" = "cond: (cond (() (quote wrong)) (t (quote right))) -> right"
 
       - name: Record evidence strength
         if: always()

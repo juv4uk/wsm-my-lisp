@@ -50,7 +50,7 @@ this commit — no row omitted or collapsed.
 | 4 | `(car (quote (radio antenna)))` | `radio` | yes | `harness-cons` calls `wsm_car` on `(cons (quote A) (quote B))`'s result, different literals/shape | related |
 | 5 | `(cdr (quote (radio antenna)))` | `(antenna)` | yes | `harness-cons` calls `wsm_cdr` similarly, different literals/shape | related |
 | 6 | `(cons (quote radio) (quote (antenna)))` | `(radio antenna)` | yes | `harness-cons` proves `(cons (quote A) (quote B))` → `(A . B)` — different structure (atom+list here vs atom+atom there) | related |
-| 7 | `(cond (() (quote wrong)) (t (quote right)))` | `right` | yes | none — this is exactly the fixture `cml` is compiling from real `meta-eval.my` source right now | pending |
+| 7 | `(cond (() (quote wrong)) (t (quote right)))` | `right` | yes | `harness-cond` (added 2026-09-12) — real cml front-end compile (`parser::parse` → `lower::lower_program` → `x86_freestanding`), not hand-built IR; linked against this repo's `asm/nucleus.s`, executed, returns `right` | **confirmed** |
 | 8 | `(/ 5 6 8 7)` | `5/336` | yes | none — no rational-arithmetic asm primitive exists in `asm/nucleus.s` | unsupported |
 | 9 | `(eq (lambda (x) x) (lambda (x) x))` | `()` | yes | `harness-closure` proves closure identity via direct `wsm_closure_new` ABI calls, not through evaluated `(lambda ...)` sugar | related |
 | 10 | `(defmacro foo)` | error `Arity` | yes | none — no macro support in the asm nucleus | unsupported |
@@ -70,14 +70,17 @@ absent.
 
 ## Honest summary
 
-**1 of these fixtures (`count-down`/`countdown`) has a byte-exact
-compiled/native witness today.** Everything else is either `related`
-(same primitive proven, different literal — real evidence of
-mechanism, not of the specific fixture) or `pending`/`unsupported`
-(explicitly named, per #4's acceptance, rather than silently assumed
-passing). This matches the state found in an earlier informal
-cross-reference; this document makes it a checked-in artifact instead
-of session-local knowledge.
+**2 of these fixtures (`count-down`/`countdown` and, as of 2026-09-12,
+`cond`) have a byte-exact compiled/native witness today.** The `cond`
+row closed via a real discovery, not new compiler work: `wsm-os-lisp`
+had already added bounded `Ir::Cond`/`Ir::Quote` support to `cml`'s
+`x86_freestanding` backend for its own M5A milestone — this fixture
+needed none of the general first-class application support that's
+still genuinely missing for the *real* `my-eval-cond` function inside
+`meta-eval.my`. Everything else is either `related` (same primitive
+proven, different literal — real evidence of mechanism, not of the
+specific fixture) or `pending`/`unsupported` (explicitly named, per
+#4's acceptance, rather than silently assumed passing).
 
 ## What would move a `related`/`pending` row to `confirmed`
 
@@ -86,12 +89,10 @@ commitment — but for a future session picking this up: the honest gap
 between `related` and `confirmed` for rows 2/3/4/5/6/9 is almost always
 "the harness needs a CML-generated entry stub for *this exact
 expression's* literals" (a mechanical CML-invocation step, not a new
-asm primitive). Rows 1/7/12-16 (`pending`) need a witness written from
-scratch, not just re-targeted literals — row 7 (`cond`) is the one
-`cml` is actively compiling from real `meta-eval.my` source right now.
-Rows 8/10/17 (`unsupported`) need new nucleus capability (rational
-arithmetic, macros) and are out of current scope per
-`docs/AUTHORITY.md`, not next steps.
+asm primitive). Rows 1/12-16 (`pending`) need a witness written from
+scratch, not just re-targeted literals. Rows 8/10/17 (`unsupported`)
+need new nucleus capability (rational arithmetic, macros) and are out
+of current scope per `docs/AUTHORITY.md`, not next steps.
 
 ## Parity gate note (#4 acceptance: "deliberate mutation of one
 result/error/provenance field is caught")

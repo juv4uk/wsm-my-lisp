@@ -51,6 +51,7 @@ jobs:
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-atom)" = "t"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-cons)" = "(A . B)"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-eq)" = "wsm_eq: (eq 41 41) -> t, (eq 41 42) -> ()  [both correct]"
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-eq-symbol)" = "wsm_eq: (eq radio radio) -> t, (eq radio antenna) -> ()  [both correct]"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-lambda)" = "7"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-countdown)" = "countdown 100000 -> done"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-closure)" = "closure identity: definition=17 env=42 self-eq=t peer-eq=()"

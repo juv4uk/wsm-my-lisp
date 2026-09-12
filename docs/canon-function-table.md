@@ -37,7 +37,7 @@ here (my-lisp owns that file; this table only projects it).
 | cons | 0004 | `en cons`, `uk сполучити`, `sa saṃyuj`, `sym :` | `wsm_cons` | native | hand-written, this repo, Stage 0 | `harness-cons` |
 | car | 0005 | `en car`, `uk перше`, `sa ādi`, `sym :п` | `wsm_car` | native | hand-written, this repo, Stage 0 | `harness-cons` (calls `wsm_car` on its result) |
 | cdr | 0006 | `en cdr`, `uk решта`, `sa śeṣa`, `sym :р` | `wsm_cdr` | native | hand-written, this repo, Stage 0 | `harness-cons` (calls `wsm_cdr` on its result) |
-| eq | 0003 | `en eq`, `uk тотожне?`, `sa abheda`, `sym =?` | `wsm_eq` | native | hand-written, this repo, Stage 0 | `harness-eq` (fixnum only — see gap below) |
+| eq | 0003 | `en eq`, `uk тотожне?`, `sa abheda`, `sym =?` | `wsm_eq` | native | hand-written, this repo, Stage 0 (Fixnum witness) / Stage 2 (Symbol witness, 2026-09-12) | `harness-eq` (Fixnum) + `harness-eq-symbol` (Symbol, closes the gap noted below) |
 | atom | 0002 | `en atom`, `uk атом?`, `sa aṇu`, `sym .?` | `wsm_atom` | native | hand-written, this repo, Stage 0 | `harness-atom` |
 | quote | 0001 | `en quote`, `uk як-є`, `sa svarūpa`, `sym '` | — | not-in-scope | dispatch lived in `dll/eval.rs`, deleted at Phase D (`1e1549a`); moved to `my-lisp-cyberpunk/host-runtime/build.rs` + `cml`'s compiler | none in this repo — CML resolves `quote` before lowering reaches `asm/nucleus.s`; nucleus never sees the surface spelling |
 | cond | 0007 | `en cond`, `uk за-умовою`, `sa anukrama`, `sym ?:` | — | witnessed-only, not yet in this repo | same as `quote`: dispatch is CML's job, not the nucleus's; the fixture `(cond (() (quote wrong)) (t (quote right)))` is `pending` in `docs/compiler-oracle-corpus-parity-2026-09-11.md` (`cml` actively compiling it) | none yet — will be `harness-cond` once `cml` lands the compiled entry |
@@ -45,14 +45,14 @@ here (my-lisp owns that file; this table only projects it).
 
 ## Honest gaps, named per this issue's own discipline ("невідомий ID fail-closed")
 
-- **`eq` is only witnessed on `Fixnum`s, not `Symbol`s.** `harness-eq`
-  tests `(eq 41 41)`/`(eq 41 42)`. The `compiler-corpus` fixture
-  `(eq (quote radio) (quote radio))` (symbol equality) has no
-  standalone `wsm_eq`-on-symbols witness — `harness-cons`'s
-  `render_symbol` decodes a symbol tag for *display*, but no harness
-  asserts `wsm_eq` itself on two `Symbol` words. This is a real,
-  previously-undocumented gap surfaced by building this table, not
-  present in the earlier parity doc's phrasing.
+- ~~`eq` is only witnessed on `Fixnum`s, not `Symbol`s.~~ **Closed
+  2026-09-12**: `harness-eq-symbol` now proves `wsm_eq` on two
+  `Symbol` words (matching id vs. distinct id), mirroring the
+  `compiler-corpus` fixtures `(eq (quote radio) (quote radio))` → `t`
+  and `(eq (quote radio) (quote antenna))` → `()`. `wsm_eq`'s own asm
+  (`asm/nucleus.s`) does a plain full-word compare with no tag-specific
+  branch, so this was expected to already work — the gap was purely in
+  witness coverage, not in the primitive itself, and this closes it.
 - **No asm projection exists for `quote`/`cond` in this repo, by
   design** — those are CML-lowering-time forms, resolved away before
   `asm/nucleus.s` ever runs; a `wsm_cond`/`wsm_quote` primitive would

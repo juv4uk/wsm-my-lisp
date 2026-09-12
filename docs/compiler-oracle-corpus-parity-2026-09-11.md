@@ -46,7 +46,7 @@ this commit — no row omitted or collapsed.
 |---|---|---|---|---|---|
 | 1 | `(quote radio)` | `radio` | yes | none | pending |
 | 2 | `(atom (quote radio))` | `t` | yes | `harness-atom` tests `(atom (quote ()))`, different literal | related |
-| 3 | `(eq (quote radio) (quote radio))` | `t` | yes | `harness-eq` tests fixnum `(eq 41 41)`, not Symbol `eq` | related |
+| 3 | `(eq (quote radio) (quote radio))` | `t` | yes | `harness-eq-symbol` (added 2026-09-12) proves `wsm_eq` on matching `Symbol` ids directly — literal symbol *names* (`radio` vs. image-local id `1`) still differ from a real CML-compiled entry, so this stays `related` rather than byte-exact `confirmed` | related (upgraded from Fixnum-only to Symbol-level) |
 | 4 | `(car (quote (radio antenna)))` | `radio` | yes | `harness-cons` calls `wsm_car` on `(cons (quote A) (quote B))`'s result, different literals/shape | related |
 | 5 | `(cdr (quote (radio antenna)))` | `(antenna)` | yes | `harness-cons` calls `wsm_cdr` similarly, different literals/shape | related |
 | 6 | `(cons (quote radio) (quote (antenna)))` | `(radio antenna)` | yes | `harness-cons` proves `(cons (quote A) (quote B))` → `(A . B)` — different structure (atom+list here vs atom+atom there) | related |

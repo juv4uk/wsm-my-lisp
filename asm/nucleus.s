@@ -46,8 +46,9 @@
      * SYM_T_WORD above. Only the two variants this nucleus actually raises
      * are named here; harness/tests/semantic_authority.rs checks these
      * against the pinned target contract. */
-    .equ ERR_OUT_OF_MEMORY, 1
-    .equ ERR_TYPE,          2
+    .equ ERR_OUT_OF_MEMORY,  1
+    .equ ERR_TYPE,           2
+    .equ ERR_ABI_VIOLATION,  4
 
     /* Механічна проєкція wsm_os_target::ClosureDescriptor. Значення нижче
      * перевіряються semantic_authority.rs проти pinned target contract. */
@@ -172,7 +173,7 @@ wsm_closure_new:
     orq     $TAG_CLOSURE, %rax
     ret
 wsm_closure_new_oom:
-    movl    $1, %esi                /* ErrorCode::OutOfMemory = 1 */
+    movl    $ERR_OUT_OF_MEMORY, %esi
     xorl    %edx, %edx
     xorl    %ecx, %ecx
     jmp     wsm_fail
@@ -200,11 +201,11 @@ wsm_closure_definition:
     movl    CLOSURE_DEFINITION_ID_OFFSET(%rax), %eax
     ret
 .Lclosure_definition_type:
-    movl    $2, %esi                /* ErrorCode::Type = 2 */
+    movl    $ERR_TYPE, %esi
     xorl    %ecx, %ecx
     jmp     wsm_fail
 .Lclosure_definition_abi:
-    movl    $4, %esi                /* ErrorCode::AbiViolation = 4 */
+    movl    $ERR_ABI_VIOLATION, %esi
     xorl    %ecx, %ecx
     jmp     wsm_fail
     .size wsm_closure_definition, . - wsm_closure_definition
@@ -231,11 +232,11 @@ wsm_closure_environment:
     movq    CLOSURE_ENVIRONMENT_REF_OFFSET(%rax), %rax
     ret
 .Lclosure_environment_type:
-    movl    $2, %esi                /* ErrorCode::Type = 2 */
+    movl    $ERR_TYPE, %esi
     xorl    %ecx, %ecx
     jmp     wsm_fail
 .Lclosure_environment_abi:
-    movl    $4, %esi                /* ErrorCode::AbiViolation = 4 */
+    movl    $ERR_ABI_VIOLATION, %esi
     xorl    %ecx, %ecx
     jmp     wsm_fail
     .size wsm_closure_environment, . - wsm_closure_environment

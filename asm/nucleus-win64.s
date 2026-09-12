@@ -43,6 +43,13 @@
     .equ TAG_SYMBOL, 4
     .equ TAG_MASK,   7
 
+    /* wsm_os_target::ErrorCode -- mechanical projection, same values as
+     * nucleus.s's own ERR_* constants (kept in sync by hand; both files
+     * are mirrors of the same primitive set for different calling
+     * conventions, not independent specifications). */
+    .equ ERR_OUT_OF_MEMORY, 1
+    .equ ERR_TYPE,          2
+
     .equ SYM_T_ID,   0x1FFFFFFFFFFFFFFF   /* wsm_os_target::SYMBOL_ID_MAX */
     .equ SYM_T_WORD, (SYM_T_ID << 3) | TAG_SYMBOL   /* wsm_os_target::encode_symbol(SYM_T_ID) */
 
@@ -71,7 +78,7 @@ wsm_cons_oom:
      * SSE instruction that faults on a misaligned stack. Not a hypothetical
      * concern flagged in a comment; a real, reproduced, then-fixed bug. */
     subq    $40, %rsp
-    movl    $1, %ecx                /* ErrorCode::OutOfMemory = 1 (arg1: code) */
+    movl    $ERR_OUT_OF_MEMORY, %ecx /* arg1: code */
     xorl    %edx, %edx               /* arg2: a = 0 */
     xorl    %r8d, %r8d               /* arg3: b = 0 */
     call    wsm_fail_win64
@@ -93,7 +100,7 @@ wsm_car:
     ret
 wsm_car_type_error:
     subq    $40, %rsp               /* Win64 16-alignment, see wsm_cons_oom above */
-    movl    $2, %ecx                 /* ErrorCode::Type = 2 (arg1: code) */
+    movl    $ERR_TYPE, %ecx           /* arg1: code */
     xorl    %edx, %edx
     xorl    %r8d, %r8d
     call    wsm_fail_win64
@@ -111,7 +118,7 @@ wsm_cdr:
     ret
 wsm_cdr_type_error:
     subq    $40, %rsp
-    movl    $2, %ecx                 /* ErrorCode::Type = 2 (arg1: code) */
+    movl    $ERR_TYPE, %ecx           /* arg1: code */
     xorl    %edx, %edx
     xorl    %r8d, %r8d
     call    wsm_fail_win64

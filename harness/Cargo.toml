@@ -13,6 +13,10 @@ name = "harness-atom"
 path = "src/harness_atom.rs"
 
 [[bin]]
+name = "harness-atom-cons"
+path = "src/harness_atom_cons.rs"
+
+[[bin]]
 name = "harness-lambda"
 path = "src/harness_lambda.rs"
 

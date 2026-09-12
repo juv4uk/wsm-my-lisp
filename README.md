@@ -62,6 +62,7 @@ ABI as CML/`wsm-os-target`. Bounded 4096-byte arena, no GC.
 | Witness | Result |
 |---|---|
 | `harness-atom` | `t` |
+| `harness-atom-cons` | both correct (positive + negative) |
 | `harness-cons` | `(A . B)` |
 | `harness-lambda` | `7` |
 | `harness-eq` | both correct (Fixnum) |

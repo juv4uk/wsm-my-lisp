@@ -49,6 +49,7 @@ jobs:
         shell: bash
         run: |
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-atom)" = "t"
+          test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-atom-cons)" = "wsm_atom: (atom ()) -> t, (atom (cons radio antenna)) -> ()  [both correct]"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-cons)" = "(A . B)"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-eq)" = "wsm_eq: (eq 41 41) -> t, (eq 41 42) -> ()  [both correct]"
           test "$(cargo run --quiet --release --manifest-path harness/Cargo.toml --locked --bin harness-eq-symbol)" = "wsm_eq: (eq radio radio) -> t, (eq radio antenna) -> ()  [both correct]"

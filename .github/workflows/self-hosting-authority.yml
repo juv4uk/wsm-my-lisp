@@ -63,6 +63,11 @@ jobs:
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-atom)" = "t"
 
+      - name: Execute atom-on-cons witness
+        shell: bash
+        run: |
+          test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-atom-cons)" = "wsm_atom: (atom ()) -> t, (atom (cons radio antenna)) -> ()  [both correct]"
+
       - name: Execute cons witness
         shell: bash
         run: |

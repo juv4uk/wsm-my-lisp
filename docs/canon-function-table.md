@@ -86,6 +86,19 @@ here (my-lisp owns that file; this table only projects it).
   fabricating a fake pointer value — a different, riskier kind of test
   than calling a primitive with an ordinary wrong-typed value. Named
   here rather than silently left out.
+- ~~`cml`'s generated `cond` assembly hardcodes bare `t` to `CANONICAL_T`
+  without checking whether `t` is locally shadowed.~~ **Found
+  2026-09-12 (my-lisp-cyberpunk raised it, confirmed by reading the
+  generated assembly and my-lisp's own `evaluate_cond` — it evaluates
+  every condition including `t` through ordinary environment lookup,
+  no special "else" syntax), fixed the same day upstream**: `cml#21`
+  (commit `c311540`) found the real bug was frontend-wide (`lower.rs`'s
+  `lower_symbol` hardcoded both `T`/`NIL` with no `env.is_bound` check,
+  unlike every other shadowable builtin next to it), not
+  `x86_freestanding`-specific, and fixed it there for all backends.
+  `harness-cond`'s own fixture never shadows `t`, so its `confirmed`
+  status was never actually wrong — but the general claim "`cml` can
+  compile any `cond` using `t`" would have been, until this fixed it.
 - **No asm projection exists for `quote`/`cond` in this repo, by
   design** — those are CML-lowering-time forms, resolved away before
   `asm/nucleus.s` ever runs; a `wsm_cond`/`wsm_quote` primitive would

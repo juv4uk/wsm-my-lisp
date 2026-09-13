@@ -58,7 +58,7 @@ this commit — no row omitted or collapsed.
 | 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | none — dotted/variadic lambda-list binding | pending |
 | 13 | `((lambda args args) 1 2 3)` | `(1 2 3)` | yes | none — bare-symbol lambda-list binding | pending |
 | 14 | `((lambda (a b . rest) a) 1)` | error `Arity` | yes | none — variadic lambda still enforcing fixed-param arity | pending |
-| 15 | `(let ((second (lambda (x) (quote shadowed)))) (second (quote (1 2 3))))` | `shadowed` | yes | none — ordinary-binding shadowing through `let`'s lambda-lowering | pending |
+| 15 | `(let ((second (lambda (x) (quote shadowed)))) (second (quote (1 2 3))))` | `shadowed` | yes | `cml` commit `6ce577f` (`tests/x86_top_level_let_test.rs`) proves top-level lexical `let` closure application within its body, linked against `asm/nucleus.s`, returning `shadowed` | **confirmed** |
 | 16 | `(let ((car (lambda (x) (quote shadowed)))) (car (quote (1 2))))` | error `InvalidForm` | yes | none — Canon 0+7 spellings unshadowable (Contract 6.0) | pending |
 | 17 | `(defmacro my-list items (cons (quote quote) (cons items (quote ())))) (my-list 1 2 3)` | `(1 2 3)` | yes | none — no macro support in the asm nucleus | unsupported |
 
@@ -70,17 +70,15 @@ absent.
 
 ## Honest summary
 
-**2 of these fixtures (`count-down`/`countdown` and, as of 2026-09-12,
-`cond`) have a byte-exact compiled/native witness today.** The `cond`
-row closed via a real discovery, not new compiler work: `wsm-os-lisp`
-had already added bounded `Ir::Cond`/`Ir::Quote` support to `cml`'s
-`x86_freestanding` backend for its own M5A milestone — this fixture
-needed none of the general first-class application support that's
-still genuinely missing for the *real* `my-eval-cond` function inside
-`meta-eval.my`. Everything else is either `related` (same primitive
-proven, different literal — real evidence of mechanism, not of the
-specific fixture) or `pending`/`unsupported` (explicitly named, per
-#4's acceptance, rather than silently assumed passing).
+**3 of these fixtures (`count-down`/`countdown`, `cond`, and, as of 2026-09-13,
+`let` closure application [row 15]) have a byte-exact compiled/native witness today.**
+The `cond` row closed via a real discovery in `wsm-os-lisp` (bounded `Ir::Cond`/`Ir::Quote`
+in `cml`'s `x86_freestanding` backend), and row 15 closed via `cml` commit `6ce577f`
+(admitting top-level lexical `let` for Stage2 with closure application verified in
+`tests/x86_top_level_let_test.rs` linked against `asm/nucleus.s`). Everything else is either
+`related` (same primitive proven, different literal — real evidence of mechanism, not of the
+specific fixture) or `pending`/`unsupported` (explicitly named, per #4's acceptance, rather
+than silently assumed passing).
 
 ## What would move a `related`/`pending` row to `confirmed`
 
@@ -89,10 +87,10 @@ commitment — but for a future session picking this up: the honest gap
 between `related` and `confirmed` for rows 2/3/4/5/6/9 is almost always
 "the harness needs a CML-generated entry stub for *this exact
 expression's* literals" (a mechanical CML-invocation step, not a new
-asm primitive). Rows 1/12-16 (`pending`) need a witness written from
-scratch, not just re-targeted literals. Rows 8/10/17 (`unsupported`)
-need new nucleus capability (rational arithmetic, macros) and are out
-of current scope per `docs/AUTHORITY.md`, not next steps.
+asm primitive). Rows 1/12-14/16 (`pending`) need a witness written from
+scratch, not just re-targeted literals (rows 12-14 cover general fixed/variadic application).
+Rows 8/10/17 (`unsupported`) need new nucleus capability (rational arithmetic, macros) and
+are out of current scope per `docs/AUTHORITY.md`, not next steps.
 
 ## Parity gate note (#4 acceptance: "deliberate mutation of one
 result/error/provenance field is caught")

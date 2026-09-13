@@ -2,7 +2,7 @@
 //! criterion: "deliberate mutation of one result/error/provenance
 //! field is caught." `docs/compiler-oracle-corpus-parity-2026-09-11.md`
 //! is a hand-maintained table describing all 17 `(compiler-corpus . t)`
-//! fixtures in `external/my-lisp/tests/fixtures/conformance.my` -- this
+//! fixtures in `external/my-lisp/tests/fixtures/conformance.lisp` -- this
 //! test is the mechanical half that document's own "Parity gate note"
 //! section named as not yet done: if my-lisp changes any tagged
 //! fixture's `expr`/`expected`/`error` (or adds/removes one), this
@@ -11,11 +11,11 @@
 //! Deliberately NOT a full S-expression parser (that belongs in
 //! `build.rs`-style generators consuming this file for real dispatch,
 //! e.g. the Canon-spelling projection in `my-lisp-cyberpunk/host-runtime`)
-//! -- `conformance.my`'s own fixture format is one flat alist per line,
+//! -- `conformance.lisp`'s own fixture format is one flat alist per line,
 //! so line-based extraction of the two fields this test cares about is
 //! sufficient and simpler than a general reader.
 
-const CONFORMANCE: &str = include_str!("../../external/my-lisp/tests/fixtures/conformance.my");
+const CONFORMANCE: &str = include_str!("../../external/my-lisp/tests/fixtures/conformance.lisp");
 
 /// Extracts the quoted string value of `(key . "value")` from one line,
 /// or `None` if that key isn't present on the line.
@@ -130,9 +130,8 @@ fn compiler_corpus_matches_documented_parity_table() {
     assert_eq!(
         actual.len(),
         documented.len(),
-        "conformance.my's compiler-corpus fixture count changed ({} found, {} documented) -- \
-         update docs/compiler-oracle-corpus-parity-2026-09-11.md AND this test's \
-         documented_fixtures() together",
+        "conformance.lisp's compiler-corpus fixture count changed ({} found, {} documented) -- \
+         did external/my-lisp add/remove a tagged fixture? Update docs/compiler-oracle-corpus-parity-2026-09-11.md",
         actual.len(),
         documented.len()
     );
@@ -143,7 +142,7 @@ fn compiler_corpus_matches_documented_parity_table() {
             .find(|(actual_expr, _)| actual_expr == expr)
             .unwrap_or_else(|| {
                 panic!(
-                    "documented fixture not found in conformance.my (removed or expr text \
+                    "documented fixture not found in conformance.lisp (removed or expr text \
                      changed): {expr}"
                 )
             });

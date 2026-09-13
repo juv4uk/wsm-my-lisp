@@ -32,14 +32,14 @@
 | 9 | `(eq (lambda (x) x) (lambda (x) x))` | `()` | yes | `harness-closure` доводить ідентичність замикань через ABI | related |
 | 10 | `(defmacro foo)` | error `Arity` | yes | немає — підтримка макросів відсутня в asm nucleus | unsupported |
 | 11 | `(def count-down (lambda (n) (cond ((eq n 0) (quote done)) (t (count-down (- n 1)))))) (count-down 100000)` | `done` | yes | `harness-countdown` — обмежена self-tail рекурсія на 100k, згенерована CML | **confirmed** |
-| 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | немає — зв'язування варіативного списку аргументів | pending |
-| 13 | `((lambda args args) 1 2 3)` | `(1 2 3)` | yes | немає — зв'язування списку аргументів у символ | pending |
-| 14 | `((lambda (a b . rest) a) 1)` | error `Arity` | yes | немає — перевірка фіксованої arity для варіативної лямбди | pending |
+| 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | коміт `cml` `1104657` (`tests/x86_top_level_let_test.rs::row12_corpus_fixture_exact_witness`) доводить варіативне застосування лямбди зі згорткою `wsm_cons` справа наліво, повертає `(3 4 5)` | **confirmed** |
+| 13 | `((lambda args args) 1 2 3)` | `(1 2 3)` | yes | коміт `cml` `1104657` (`tests/x86_top_level_let_test.rs::row13_corpus_fixture_exact_witness`) доводить застосування all-rest лямбди зі згорткою `wsm_cons`, повертає `(1 2 3)` | **confirmed** |
+| 14 | `((lambda (a b . rest) a) 1)` | error `Arity` | yes | коміт `cml` `1104657` (`tests/x86_freestanding_test.rs::variadic_lambda_under_arity_is_rejected`) доводить відхилення під час компіляції з `InvalidArity { expected: 2, actual: 1 }` | **confirmed** |
 | 15 | `(let ((second (lambda (x) (quote shadowed)))) (second (quote (1 2 3))))` | `shadowed` | yes | коміт `cml` `6ce577f` (`tests/x86_top_level_let_test.rs`) доводить застосування замикання у тілі top-level лексичного `let` з лінковкою до `asm/nucleus.s` | **confirmed** |
 | 16 | `(let ((car (lambda (x) (quote shadowed)))) (car (quote (1 2))))` | error `InvalidForm` | yes | немає — форми Canon 0+7 не підлягають затіненню (Контракт 6.0) | pending |
 | 17 | `(defmacro my-list items (cons (quote quote) (cons items (quote ())))) (my-list 1 2 3)` | `(1 2 3)` | yes | немає — підтримка макросів відсутня в asm nucleus | unsupported |
 
 ## Чесний підсумок
 
-**3 з цих фікстур (`count-down`/`countdown`, `cond` та, станом на 2026-09-13, застосування замикання в `let` [рядок 15]) мають точний скомпільований/натівний доказ виконання на сьогодні.**
-Рядок `cond` закрився завдяки відкриттю в `wsm-os-lisp` (підтримка `Ir::Cond`/`Ir::Quote` у бекенді `x86_freestanding`), а рядок 15 закрився завдяки коміту `cml` `6ce577f` (допуск top-level лексичного `let` для Stage2 з верифікацією виконання замикання в `tests/x86_top_level_let_test.rs` із підключенням `asm/nucleus.s`). Все інше залишається `related` або `pending`/`unsupported`.
+**6 з цих фікстур (`count-down`/`countdown` [рядок 11], `cond` [рядок 7], варіативний список rest [рядок 12], all-rest список [рядок 13], помилка arity для варіативної лямбди [рядок 14] та застосування замикання в `let` [рядок 15]) мають точний скомпільований/натівний доказ виконання на сьогодні.**
+Рядок `cond` закрився завдяки відкриттю в `wsm-os-lisp`, рядок 15 — завдяки коміту `cml` `6ce577f`, а рядки 12–14 — завдяки коміту `cml` `1104657` (підтримка прямої варіативної та all-rest аплікації лямбд з пакуванням списків через `wsm_cons` та fail-closed перевіркою арності). Все інше залишається `related` або `pending`/`unsupported`.

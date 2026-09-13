@@ -55,9 +55,9 @@ this commit — no row omitted or collapsed.
 | 9 | `(eq (lambda (x) x) (lambda (x) x))` | `()` | yes | `harness-closure` proves closure identity via direct `wsm_closure_new` ABI calls, not through evaluated `(lambda ...)` sugar | related |
 | 10 | `(defmacro foo)` | error `Arity` | yes | none — no macro support in the asm nucleus | unsupported |
 | 11 | `(def count-down (lambda (n) (cond ((eq n 0) (quote done)) (t (count-down (- n 1)))))) (count-down 100000)` | `done` | yes | `harness-countdown` — same shape (bounded self-tail-recursion, 100k), CML-generated entry, linked only against `asm/nucleus.s` | **confirmed** |
-| 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | none — dotted/variadic lambda-list binding | pending |
-| 13 | `((lambda args args) 1 2 3)` | `(1 2 3)` | yes | none — bare-symbol lambda-list binding | pending |
-| 14 | `((lambda (a b . rest) a) 1)` | error `Arity` | yes | none — variadic lambda still enforcing fixed-param arity | pending |
+| 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | `cml` commit `1104657` (`tests/x86_top_level_let_test.rs::row12_corpus_fixture_exact_witness`) proves variadic lambda application with right-to-left `wsm_cons` folding, returning `(3 4 5)` linked against `asm/nucleus.s` | **confirmed** |
+| 13 | `((lambda args args) 1 2 3)` | `(1 2 3)` | yes | `cml` commit `1104657` (`tests/x86_top_level_let_test.rs::row13_corpus_fixture_exact_witness`) proves all-rest lambda application with right-to-left `wsm_cons` folding, returning `(1 2 3)` linked against `asm/nucleus.s` | **confirmed** |
+| 14 | `((lambda (a b . rest) a) 1)` | error `Arity` | yes | `cml` commit `1104657` (`tests/x86_freestanding_test.rs::variadic_lambda_under_arity_is_rejected`) proves fail-closed compile-time rejection with `InvalidArity { expected: 2, actual: 1 }` | **confirmed** |
 | 15 | `(let ((second (lambda (x) (quote shadowed)))) (second (quote (1 2 3))))` | `shadowed` | yes | `cml` commit `6ce577f` (`tests/x86_top_level_let_test.rs`) proves top-level lexical `let` closure application within its body, linked against `asm/nucleus.s`, returning `shadowed` | **confirmed** |
 | 16 | `(let ((car (lambda (x) (quote shadowed)))) (car (quote (1 2))))` | error `InvalidForm` | yes | none — Canon 0+7 spellings unshadowable (Contract 6.0) | pending |
 | 17 | `(defmacro my-list items (cons (quote quote) (cons items (quote ())))) (my-list 1 2 3)` | `(1 2 3)` | yes | none — no macro support in the asm nucleus | unsupported |
@@ -70,15 +70,15 @@ absent.
 
 ## Honest summary
 
-**3 of these fixtures (`count-down`/`countdown`, `cond`, and, as of 2026-09-13,
-`let` closure application [row 15]) have a byte-exact compiled/native witness today.**
-The `cond` row closed via a real discovery in `wsm-os-lisp` (bounded `Ir::Cond`/`Ir::Quote`
-in `cml`'s `x86_freestanding` backend), and row 15 closed via `cml` commit `6ce577f`
-(admitting top-level lexical `let` for Stage2 with closure application verified in
-`tests/x86_top_level_let_test.rs` linked against `asm/nucleus.s`). Everything else is either
-`related` (same primitive proven, different literal — real evidence of mechanism, not of the
-specific fixture) or `pending`/`unsupported` (explicitly named, per #4's acceptance, rather
-than silently assumed passing).
+**6 of these fixtures (`count-down`/`countdown` [row 11], `cond` [row 7],
+variadic rest list [row 12], all-rest list [row 13], variadic under-arity error [row 14],
+and `let` closure application [row 15]) have a byte-exact compiled/native witness today.**
+The `cond` row closed via `wsm-os-lisp` discovery, row 15 closed via `cml` commit `6ce577f`,
+and rows 12–14 closed via `cml` commit `1104657` (admitting direct variadic and all-rest
+lambda application with `wsm_cons` list packing and fail-closed arity checking). Everything
+else is either `related` (same primitive proven, different literal — real evidence of
+mechanism, not of the specific fixture) or `pending`/`unsupported` (explicitly named, per
+#4's acceptance, rather than silently assumed passing).
 
 ## What would move a `related`/`pending` row to `confirmed`
 

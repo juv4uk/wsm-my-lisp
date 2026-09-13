@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Machine-checkable authority guard for wsm-my-lisp (owner P0 #15).
 #
-# Core self-hosting path must stay Lisp + asm (+ bounded C). The Rust host
-# embed that used to live under dll/ (frozen Cyberpunk mirror) was deleted
-# at Phase D of the migration to my-lisp-cyberpunk/host-runtime — this repo
-# now carries no Rust reader/eval/apply implementation at all. This script
-# fails closed on drift back toward that.
+# Core self-hosting path is Lisp + x86-64 assembler. C and Rust are 0 in
+# production/self-hosting execution path. The Rust host embed that used to
+# live under dll/ (frozen Cyberpunk mirror) was deleted at Phase D of the
+# migration to my-lisp-cyberpunk/host-runtime — this repo now carries no
+# Rust reader/eval/apply implementation at all. This script fails closed on
+# drift back toward that.
 
 set -euo pipefail
 
@@ -41,12 +42,27 @@ done < <(find . -name '*.rs' -not -path './external/*' -print0 2>/dev/null || tr
 
 ok "no eval/reader/printer/ffi/word.rs anywhere in this repo"
 
-# --- 3. dll/ must be gone (Phase D complete) ---
+# --- 3. No C runtime modules in production path ---
+while IFS= read -r -d '' f; do
+  rel="${f#./}"
+  case "$rel" in
+    harness/*) ;;
+    external/*) ;;
+    asm/*) ;;
+    *)
+      fail "C/C++ production module found (production path is Lisp + x86-64 asm only): $rel"
+      ;;
+  esac
+done < <(find . -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -not -path './external/*' -print0 2>/dev/null || true)
+
+ok "no C/C++ production modules outside harness/asm/external"
+
+# --- 4. dll/ must be gone (Phase D complete) ---
 [[ ! -d dll ]] || fail "dll/ still present — Phase D (delete Rust host embed) not complete"
 
 ok "dll/ absent — Phase D complete"
 
-# --- 4. Documentation authority: one active entry point, archive stays non-normative ---
+# --- 5. Documentation authority: one active entry point, archive stays non-normative ---
 [[ -f docs/CURRENT.md ]] || fail "missing docs/CURRENT.md (documentation entry point, wsm-my-lisp#19)"
 [[ -f docs/archive/README.md ]] || fail "missing docs/archive/README.md (non-normative warning)"
 
@@ -60,7 +76,7 @@ done
 
 ok "docs/CURRENT.md present, archive docs self-identify as archived"
 
-# --- 5. Self-hosting CI must not reference dll as core authority ---
+# --- 6. Self-hosting CI must not reference dll as core authority ---
 if [[ -f .github/workflows/self-hosting-authority.yml ]]; then
   if grep -E '^\s*- "dll/' .github/workflows/self-hosting-authority.yml >/dev/null 2>&1; then
     fail "self-hosting-authority.yml must not path-trigger on dll/ (deleted)"
@@ -68,4 +84,4 @@ if [[ -f .github/workflows/self-hosting-authority.yml ]]; then
   ok "self-hosting workflow carries no dll/ path trigger"
 fi
 
-echo "Lisp-first authority guard passed."
+echo "Lisp-first authority guard passed (Lisp + x86-64 asm production path)."

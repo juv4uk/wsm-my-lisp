@@ -1,6 +1,6 @@
 # Authority · Авторитет
 
-**2026-09-11 · P0 #15**
+**2026-09-11 · P0 #15** — **architecturally corrected 2026-09-13 (owner directive)**
 
 ## English
 
@@ -13,7 +13,16 @@
 | CML | Compiler mechanism, not semantics |
 | `my-lisp-cyberpunk` | Product surface (RED4ext); destination for host Rust runtime |
 
-Principle: if logic can live in Lisp, put it in Lisp. Asm only when the machine must be touched. Bounded C only when asm is absurdly painful. Rust host work belongs on the Cyberpunk track, not as the next self-hosting layer here.
+Principle: **Lisp owns all logic. Assembler owns only irreducible machine mechanism.**
+
+There is no third production implementation language.
+
+```text
+If logic can live in Lisp → Lisp.
+If an operation is literally irreducible machine mechanism → assembler.
+```
+
+ABI is **SysV AMD64 calling convention / target ABI / machine ABI** — not "C ABI". C is not part of the implementation.
 
 ## Українською
 
@@ -25,5 +34,16 @@ Principle: if logic can live in Lisp, put it in Lisp. Asm only when the machine 
 | `dll/` (видалено, Phase D, 2026-09-11) | Був тимчасовим Windows embed для Cyberpunk; мігровано в `my-lisp-cyberpunk/host-runtime`, видалено звідси після підтвердження Phase C |
 | CML | Механізм компілятора |
 | my-lisp-cyberpunk | Продуктова поверхня; місце для host Rust |
+
+Принцип: **Lisp володіє логікою. Assembler — лише незвідним машинним механізмом.**
+
+Немає третьої production мови реалізації.
+
+```text
+Якщо логіка живе в Lisp → Lisp.
+Якщо операція — незвідний машинний механізм → assembler.
+```
+
+ABI — це **SysV AMD64 calling convention / target ABI / machine ABI** — не "C ABI". C не є частиною реалізації.
 
 Детальний inventory (архів, dll/ уже видалено): [`archive/completed-plans/dll-inventory-2026-09-11.md`](archive/completed-plans/dll-inventory-2026-09-11.md).

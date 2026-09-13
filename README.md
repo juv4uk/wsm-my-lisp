@@ -13,13 +13,13 @@ become authoritative over language semantics. Authority belongs to the
 language contract; each capability earns conformant status through
 fixtures, parity, CML admission, and native target execution.
 
-## Language priority (owner P0, 2026-09-11)
+## Language priority (owner P0, 2026-09-11; architecturally corrected 2026-09-13)
 
 ```text
-1. Lisp     — system logic and self-hosting growth
-2. Assembler — minimal substrate (ABI, primitives, hot paths when justified)
-3. C         — bounded mechanical glue only (never eval/apply semantics)
-4. Rust      — NOT a runtime growth direction in this repo
+1. Lisp           — system logic and self-hosting growth
+2. x86-64 Assembler — minimal machine substrate (ABI, primitives, hot paths when justified)
+3. C              — 0 in production/self-hosting execution path
+4. Rust           — 0 in production/self-hosting execution path
 ```
 
 Rust host embed work (formerly `dll/`: reader, eval, FFI session) has
@@ -34,9 +34,10 @@ and the archived migration record:
 Self-hosting core path remains:
 
 ```text
-external/my-lisp/lib/meta-eval.my
+external/my-lisp/lib/meta-eval.lisp
         → CML admitted lowering
-        → asm/nucleus.s (+ minimal C only if mechanically required)
+        → generated x86-64 ASM
+        → asm/nucleus.s
         → harness witnesses (no Rust evaluator)
 ```
 
@@ -81,6 +82,8 @@ per inventory doc; QEMU later.
 capabilities у Rust**; міграція → Cyberpunk track.  
 `dll/` видалено 2026-09-11 (Phase D). Деталі: `docs/archive/completed-plans/dll-inventory-2026-09-11.md`, `docs/AUTHORITY.md`.
 Точка входу в документацію: `docs/CURRENT.md`.
+
+**Архітектурна корекція (2026-09-13, власник):** Production/self-hosting шлях — **Lisp + x86-64 assembler**. C та Rust = 0 у виконуваному ланцюжку. Hand-written entry-*.s мають стати CML-generated artifacts з provenance. Не писати eval/apply/reader/environment semantics у ASM — це Lisp/CML territory.
 
 ## Ліцензія
 

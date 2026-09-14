@@ -6,14 +6,14 @@ Submodule `external/my-lisp` bumped `ccacc68` → `6d71151` (my-lisp's own
 rather than an earlier commit that predates that tagging. This document
 is the three-column observation table #4's acceptance criteria ask
 for, built by reading `wsm-my-lisp/harness/src/harness_*.rs` directly
-against `external/my-lisp/tests/fixtures/conformance.my`'s 17 tagged
+against `external/my-lisp/tests/fixtures/conformance.lisp`'s 17 tagged
 records — not assumed or copied from an earlier audit.
 
 ## Columns
 
 - **my-lisp oracle**: the fixture's own `expr`/`expected` (or `error`)
-  from `conformance.my`, unchanged, my-lisp's own authority.
-- **WSM/meta**: whether `external/my-lisp/lib/meta-eval.my` (the
+  from `conformance.lisp`, unchanged, my-lisp's own authority.
+- **WSM/meta**: whether `external/my-lisp/lib/meta-eval.lisp` (the
   self-hosted evaluator source) is expected to cover this shape at all
   — all 17 are ordinary evaluation, so this column is `yes` throughout;
   it exists structurally per #4's ask, not because any fixture here is
@@ -32,14 +32,14 @@ records — not assumed or copied from an earlier audit.
   not evidence this specific fixture passes.
 - **pending** — in scope for the current Stage2/asm nucleus, no harness
   written yet. (`cond` is the fixture actively being worked by `cml`,
-  compiling real `meta-eval.my` source — see `wsm-my-lisp#15`/`#6`.)
+  compiling real `meta-eval.lisp` source — see `wsm-my-lisp#15`/`#6`.)
 - **unsupported** — outside current nucleus capability (rational
   arithmetic, macros) — not a bug, a scope boundary.
 
 ## The table
 
 All 17 `compiler-corpus`-tagged records, verified by `grep -n
-'compiler-corpus' external/my-lisp/tests/fixtures/conformance.my` at
+'compiler-corpus' external/my-lisp/tests/fixtures/conformance.lisp` at
 this commit — no row omitted or collapsed.
 
 | # | expr | expected/error | WSM/meta | compiled/native target | status |
@@ -97,7 +97,7 @@ result/error/provenance field is caught")
 
 **Partially closed, 2026-09-12**:
 `harness/tests/compiler_corpus_parity.rs` mechanically checks that
-every `(compiler-corpus . t)` fixture in `conformance.my` still has the
+every `(compiler-corpus . t)` fixture in `conformance.lisp` still has the
 exact `expr`/`expected`/`error` this table's rows document — it
 fails closed (wrong count, missing fixture, or changed outcome) if
 my-lisp mutates a tagged fixture without this table being updated to

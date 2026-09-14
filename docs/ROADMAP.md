@@ -31,27 +31,27 @@
 ### Стадія 0 (ЗРОБЛЕНО, 2026-09-02): перший nucleus witness
 
 - `WSM-SELFHOST-META-EVAL-PARITY-C0` (my-lisp) — `my-eval` (WSM-на-WSM evaluator) доведений на C0 (McCarthy-7) рівні, oracle-tier, 21 незалежний fixture, parity 21/21.
-- Один C0-fixture (`(atom (quote ()))`) реально скомпільований через CML x86_64-freestanding backend і ВИКОНАНИЙ на реальному x86_64 (не лише зібраний) через `wsm-os-hosted`.
+- Один C0-fixture (`(atom (quote ()))`) реально скомпільований через CML x86_64-freestanding backend і ВИКОНАНИЙ на реальному x86_64 (не лише зібраний).
 - Ручне x86_64 asm-ядро (`asm/nucleus.s` у цьому репо): 5 примітивів (`wsm_cons`/`wsm_car`/`wsm_cdr`/`wsm_eq`/`wsm_atom`), кожен реально виконаний і звірений з oracle — atom/cons/eq/lambda(bounded)/escaping-closure(bounded curried).
-- `external/my-lisp` підключено як git submodule (не copy-paste) — `lib/meta-eval.my` там, точка старту "мій лісп на моєму ліспі".
+- `external/my-lisp` підключено як git submodule (не copy-paste) — `lib/meta-eval.lisp` там, точка старту "мій лісп на моєму ліспі".
 
 ### Стадія 1 (ЗРОБЛЕНО, 2026-09-05): іменована bounded tail-recursion на asm-ядрі
 
 Перші named functions вже не є блокером: `(def countdown (lambda (n) ...))` пройшов CML x86 lowering, зв'язування з `asm/nucleus.s` без Rust runtime primitives і реальний запуск. `harness-countdown` виконав `(countdown 100000)` з результатом `done`, тотожним oracle; assembly має `.Ltcloop_0` та `jmp .Ltcloop_0`, без recursive `call`, тому native stack frame лишається сталим. Джерело historical witness: CML `ae88fd2`, `asm/entry-countdown-100k.s`, wsm-my-lisp `185b803`.
 
-Наступні, окремі ворота Стадії 2: реальний call graph `meta-eval.my` — `Ir::Let`, general application/lambda, variadic-formи та поетапне виконання evaluator-а. Кожне мусить мати новий executed oracle witness; Stage 1 не означає, що весь `meta-eval.my` уже компілюється.
+Наступні, окремі ворота Стадії 2: реальний call graph `meta-eval.lisp` — `Ir::Let`, general application/lambda, variadic-formи та поетапне виконання evaluator-а. Кожне мусить мати новий executed oracle witness; Stage 1 не означає, що весь `meta-eval.lisp` уже компілюється.
 
-### Стадія 2: закриття `meta-eval.my`-графу викликів
+### Стадія 2: закриття `meta-eval.lisp`-графу викликів
 
 По одному ворота: `my-eval-cond` → `my-apply` → `my-eval-body`/`my-eval-list` → `bind-params` → повний `my-eval-top-form`/`my-eval-program`. Кожен крок — той самий стандарт доказу: реально скомпільовано, реально запущено на `asm/nucleus.s`, звірено з `crates/my-lisp`-oracle. Жодного кроку без виконаного witness.
 
 ### Стадія 3: замикання self-hosting
 
-Момент, коли `meta-eval.my` цілком виконується на asm-ядрі без участі Rust-evaluator під час виконання — **"WSM виконує WSM на моєму залізі"** перестає бути метафорою. Rust лишається offline-компілятором/tooling/oracle, не runtime-залежністю.
+Момент, коли `meta-eval.lisp` цілком виконується на asm-ядрі без участі Rust-evaluator під час виконання — **"WSM виконує WSM на моєму залізі"** перестає бути метафорою. Rust лишається offline-компілятором/tooling/oracle, не runtime-залежністю.
 
-### Стадія 4: примітиви — Rust чи асемблер, за виміряним/архітектурним обґрунтуванням
+### Стадія 4 (РІШЕННЯ УХВАЛЕНО, owner directive 2026-09-13): примітиви — асемблер, не Rust
 
-`wsm_cons`/`wsm_car`/`wsm_cdr`/`wsm_eq`/`wsm_atom` уже мають ручну asm-реалізацію в цьому репо (паралельний шлях, `wsm-os-runtime`'s Rust лишається робочим, недоторканим). Рішення, який шлях стає основним — за принципом "не performance escape hatch": спочатку WSM, якщо повільно — виміряти, якщо CML lowering може оптимізувати — виправити lowering, лише тоді — hand-written asm із названою причиною.
+`wsm_cons`/`wsm_car`/`wsm_cdr`/`wsm_eq`/`wsm_atom` мають ручну asm-реалізацію в цьому репо. Директива власника 2026-09-13 (зафіксована як `f43e94f`, дзеркально в README/AUTHORITY/guard) фіксує production path: **Lisp + x86-64 assembler only, C=0, Rust=0**. Rust лишається виключно offline-oracle/tooling; паралельного Rust-runtime примітивів у репо більше немає (`dll/` видалено, Phase D `wsm-my-lisp#15`). Зберігається принцип "не performance escape hatch": спочатку WSM, якщо повільно — виміряти, якщо CML lowering може оптимізувати — виправити lowering, лише тоді — hand-written asm із названою причиною.
 
 ### Стадія 5: `Tag::True` — fpga-lisp ISA до кінцевого затвердження
 
@@ -59,11 +59,11 @@
 
 ### Стадія 6 (після 0–5, не раніше): reasoning-шар мислячої машини
 
-Тут WSM перестає бути "лише" виконуваною мовою й стає мислячою машиною в буквальному сенсі — але лише на фундаменті, який уже дотримується Частини I. `lib/unify.my`/`reason.my`/`forward.my`/`knowledge.my`/`world.my` і особливо `lib/epistemic.my` (уже написаний, уже протестований 38/38, але НЕ підключений до `cond`/`is_truthy` — заголовок файлу прямо каже "not loaded by lib/core.my") — реальний наступний capability gap: з'єднати цей епістемічний шар (`proposed`/`reviewed`/`rejected`, `supports`/`contradicts`/`inconclusive`) з реальним прийняттям рішень, не ламаючи `() = ()`-нейтральність ядра. Не робити цього передчасно — спершу стадії 0–5, потім reasoning поверх живого self-hosted нуклеуса, не поверх Rust.
+Тут WSM перестає бути "лише" виконуваною мовою й стає мислячою машиною в буквальному сенсі — але лише на фундаменті, який уже дотримується Частини I. `lib/unify.lisp`/`reason.lisp`/`forward.lisp`/`knowledge.lisp`/`world.lisp` і особливо `lib/epistemic.lisp` (уже написаний, уже протестований 38/38, але НЕ підключений до `cond`/`is_truthy` — заголовок файлу прямо каже "not loaded by lib/core.lisp") — реальний наступний capability gap: з'єднати цей епістемічний шар (`proposed`/`reviewed`/`rejected`, `supports`/`contradicts`/`inconclusive`) з реальним прийняттям рішень, не ламаючи `() = ()`-нейтральність ядра. Не робити цього передчасно — спершу стадії 0–5, потім reasoning поверх живого self-hosted нуклеуса, не поверх Rust.
 
 ### Стадія 7 (довгостроково, названо, не розпочато): асемблер-у-Lisp за межі нуклеуса
 
-`fpga-lisp/assembler.my` уже доводить, що асемблер, написаний у Lisp, може бути реальним, byte-identical шляхом до заліза. Boot/interrupt/stack-frame DSL (`(section boot)`, `(definterrupt ...)`) — логічний наступний крок ПІСЛЯ того, як нуклеус живий, не до. `спочатку народжується маленький Lisp → потім він сам будує собі машину й ОС`, не навпаки.
+`fpga-lisp/assembler.lisp` уже доводить, що асемблер, написаний у Lisp, може бути реальним, byte-identical шляхом до заліза. Boot/interrupt/stack-frame DSL (`(section boot)`, `(definterrupt ...)`) — логічний наступний крок ПІСЛЯ того, як нуклеус живий, не до. `спочатку народжується маленький Lisp → потім він сам будує собі машину й ОС`, не навпаки.
 
 ## Наскрізне правило для кожної стадії
 
@@ -88,19 +88,19 @@ Not decorative framing. Every stage below is checked against these rules, and no
 
 Stage 0 (DONE): first nucleus witness — C0/McCarthy-7 oracle parity, one CML→x86_64 fixture actually executed (not just assembled), hand-written asm nucleus for 5 primitives all executed and oracle-checked, `external/my-lisp` submodule in place.
 
-Stage 1 (DONE, 2026-09-05): named bounded tail recursion on the asm core — `(def countdown (lambda (n) ...))` passed CML x86 lowering, linked against `asm/nucleus.s` with no Rust runtime primitives, and executed `(countdown 100000)` as `done`, matching the oracle. The assembly has `.Ltcloop_0` plus `jmp .Ltcloop_0`, with no recursive `call`, so its native frame is constant. Historical witness: CML `ae88fd2`, `asm/entry-countdown-100k.s`, wsm-my-lisp `185b803`. This does not claim that the full `meta-eval.my` call graph is compiled; `Ir::Let`, general application/lambda and variadic forms remain separate Stage 2 gates.
+Stage 1 (DONE, 2026-09-05): named bounded tail recursion on the asm core — `(def countdown (lambda (n) ...))` passed CML x86 lowering, linked against `asm/nucleus.s` with no Rust runtime primitives, and executed `(countdown 100000)` as `done`, matching the oracle. The assembly has `.Ltcloop_0` plus `jmp .Ltcloop_0`, with no recursive `call`, so its native frame is constant. Historical witness: CML `ae88fd2`, `asm/entry-countdown-100k.s`, wsm-my-lisp `185b803`. This does not claim that the full `meta-eval.lisp` call graph is compiled; `Ir::Let`, general application/lambda and variadic forms remain separate Stage 2 gates.
 
-Stage 2: close the rest of `meta-eval.my`'s call graph gate by gate, each with an executed, oracle-checked witness.
+Stage 2: close the rest of `meta-eval.lisp`'s call graph gate by gate, each with an executed, oracle-checked witness.
 
-Stage 3: self-hosting closure — `meta-eval.my` runs entirely on the asm core with no Rust evaluator at runtime.
+Stage 3: self-hosting closure — `meta-eval.lisp` runs entirely on the asm core with no Rust evaluator at runtime.
 
-Stage 4: primitives (`wsm_cons` etc.) — Rust or hand-written asm, decided per the performance-substrate discipline (measure first, never as a Rust escape hatch), not by default.
+Stage 4 (DECIDED, owner directive 2026-09-13): primitives — hand-written asm, not Rust. The directive (landed as `f43e94f`, mirrored in README/AUTHORITY/guard) fixes the production path as Lisp + x86-64 assembler only (C=0, Rust=0); Rust stays offline oracle/tooling, and this repo's parallel Rust primitive runtime is gone (`dll/` deleted, Phase D of `wsm-my-lisp#15`). The "not a performance escape hatch" order survives: WSM first, measure, fix CML lowering if it can optimize, only then hand-written asm with a named reason.
 
 Stage 5: `fpga-lisp`'s `Tag::True` — audit complete, minimal fix identified (`SYM_T=79` already exists), the RTL change itself needs its own explicit authorization since it touches already board-flashed logic.
 
-Stage 6 (after 0–5): the reasoning layer — `lib/epistemic.my` already exists, already tested, not yet wired into `cond`/`is_truthy`; the real next capability gap is connecting it without breaking `() = ()` neutrality, built on the live self-hosted nucleus, not on Rust.
+Stage 6 (after 0–5): the reasoning layer — `lib/epistemic.lisp` already exists, already tested, not yet wired into `cond`/`is_truthy`; the real next capability gap is connecting it without breaking `() = ()` neutrality, built on the live self-hosted nucleus, not on Rust.
 
-Stage 7 (long-horizon, named not started): assembler-in-Lisp beyond the nucleus — `fpga-lisp/assembler.my` already proves the path is real; boot/interrupt DSL work comes after the nucleus is alive, not before.
+Stage 7 (long-horizon, named not started): assembler-in-Lisp beyond the nucleus — `fpga-lisp/assembler.lisp` already proves the path is real; boot/interrupt DSL work comes after the nucleus is alive, not before.
 
 ## Cross-cutting rule for every stage
 

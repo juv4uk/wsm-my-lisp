@@ -36,12 +36,12 @@ jobs:
       - name: Verify pinned my-lisp semantic authority
         shell: bash
         run: |
-          expected=6d71151c7b3fd1825f4523087b176bdbe45ec809
+          expected=5500ac2ead9d028054d8a9452ecca82d1f678cc5
           actual="$(git -C external/my-lisp rev-parse HEAD)"
           test "$actual" = "$expected"
-          test -f external/my-lisp/lib/meta-eval.my
-          grep -q '^(def my-eval-cond-result$' external/my-lisp/lib/meta-eval.my
-          grep -q '^(def my-eval-result$' external/my-lisp/lib/meta-eval.my
+          test -f external/my-lisp/lib/meta-eval.lisp
+          grep -q '^(def my-eval-cond-result$' external/my-lisp/lib/meta-eval.lisp
+          grep -q '^(def my-eval-result$' external/my-lisp/lib/meta-eval.lisp
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable

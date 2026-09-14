@@ -39,6 +39,15 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Build my-lisp CLI (pinned authority 8ffffce9 MACHINE-CONTRACT-1)
+        run: |
+          cargo build --release --locked --manifest-path external/my-lisp/Cargo.toml -p my-lisp-cli
+
+      - name: Machine contract gate (P0 #23, nightly drift watchdog)
+        shell: bash
+        run: |
+          external/my-lisp/target/release/my-lisp scripts/check-machine-contracts.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
+
       - name: Run complete harness test surface
         run: cargo test --manifest-path harness/Cargo.toml --locked --all-targets --verbose
 

@@ -63,12 +63,18 @@ my-lisp не має begin/set!/raise. Armed-violation використовує �
 - `\n` у рядкових літералах працює як перенос.
 - `\(` у процес-run -c команді проходить як literal.
 
-## CI (майбутній крок)
+## CI
 
-Поточний CI (`self-hosting-authority.yml:34`) викликає bash-версію. Щоб
-запустити Lisp-версію, CI потребує `my-lisp` binary з `external/my-lisp`.
-Це окрема задача — побудова my-lisp у CI та виклик лісп-скрипта з
-fallback на bash у разі недоступності binary.
+CI (`self-hosting-authority.yml`) більше не викликає bash-версію напряму:
+крок "Lisp-first authority guard (P0 #15)" збирає `my-lisp-cli` з pinned
+submodule (`5500ac2e`) і запускає `scripts/check-lisp-first-authority.lisp`
+через бінарник:
 
-Визначення кроку міграції — за рішенням власника; parity підтверджено
-лабораторно та задокументовано тут.
+```yaml
+cargo build --release --locked --manifest-path external/my-lisp/Cargo.toml -p my-lisp-cli
+external/my-lisp/target/release/my-lisp scripts/check-lisp-first-authority.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
+```
+
+Bash-версія `scripts/check-lisp-first-authority.sh` залишається в репо як
+reference/fallback і продовжує давати ті самі рішення на тому самому репо
+(parity підтверджено; CI крок зараз викликає саме .lisp).

@@ -30,8 +30,17 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build my-lisp CLI (pinned authority 5500ac2e)
+        run: |
+          cargo build --release --locked --manifest-path external/my-lisp/Cargo.toml -p my-lisp-cli
+
       - name: Lisp-first authority guard (P0 #15)
-        run: bash scripts/check-lisp-first-authority.sh
+        shell: bash
+        run: |
+          external/my-lisp/target/release/my-lisp scripts/check-lisp-first-authority.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
 
       - name: Verify pinned my-lisp semantic authority
         shell: bash
@@ -42,9 +51,6 @@ jobs:
           test -f external/my-lisp/lib/meta-eval.lisp
           grep -q '^(def my-eval-cond-result$' external/my-lisp/lib/meta-eval.lisp
           grep -q '^(def my-eval-result$' external/my-lisp/lib/meta-eval.lisp
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Check semantic authority guard
         run: |

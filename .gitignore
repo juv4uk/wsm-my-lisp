@@ -1,0 +1,3 @@
+# Build/test artifacts from witness runs (as+ld ELF, guard reports)
+a.out
+.guard-report.txt

@@ -6,14 +6,14 @@ Submodule `external/my-lisp` bumped `ccacc68` → `6d71151` (my-lisp's own
 rather than an earlier commit that predates that tagging. This document
 is the three-column observation table #4's acceptance criteria ask
 for, built by reading `wsm-my-lisp/harness/src/harness_*.rs` directly
-against `external/my-lisp/tests/fixtures/conformance.my`'s 17 tagged
+against `external/my-lisp/tests/fixtures/conformance.lisp`'s 17 tagged
 records — not assumed or copied from an earlier audit.
 
 ## Columns
 
 - **my-lisp oracle**: the fixture's own `expr`/`expected` (or `error`)
-  from `conformance.my`, unchanged, my-lisp's own authority.
-- **WSM/meta**: whether `external/my-lisp/lib/meta-eval.my` (the
+  from `conformance.lisp`, unchanged, my-lisp's own authority.
+- **WSM/meta**: whether `external/my-lisp/lib/meta-eval.lisp` (the
   self-hosted evaluator source) is expected to cover this shape at all
   — all 17 are ordinary evaluation, so this column is `yes` throughout;
   it exists structurally per #4's ask, not because any fixture here is
@@ -32,14 +32,14 @@ records — not assumed or copied from an earlier audit.
   not evidence this specific fixture passes.
 - **pending** — in scope for the current Stage2/asm nucleus, no harness
   written yet. (`cond` is the fixture actively being worked by `cml`,
-  compiling real `meta-eval.my` source — see `wsm-my-lisp#15`/`#6`.)
+  compiling real `meta-eval.lisp` source — see `wsm-my-lisp#15`/`#6`.)
 - **unsupported** — outside current nucleus capability (rational
   arithmetic, macros) — not a bug, a scope boundary.
 
 ## The table
 
 All 17 `compiler-corpus`-tagged records, verified by `grep -n
-'compiler-corpus' external/my-lisp/tests/fixtures/conformance.my` at
+'compiler-corpus' external/my-lisp/tests/fixtures/conformance.lisp` at
 this commit — no row omitted or collapsed.
 
 | # | expr | expected/error | WSM/meta | compiled/native target | status |
@@ -55,10 +55,10 @@ this commit — no row omitted or collapsed.
 | 9 | `(eq (lambda (x) x) (lambda (x) x))` | `()` | yes | `harness-closure` proves closure identity via direct `wsm_closure_new` ABI calls, not through evaluated `(lambda ...)` sugar | related |
 | 10 | `(defmacro foo)` | error `Arity` | yes | none — no macro support in the asm nucleus | unsupported |
 | 11 | `(def count-down (lambda (n) (cond ((eq n 0) (quote done)) (t (count-down (- n 1)))))) (count-down 100000)` | `done` | yes | `harness-countdown` — same shape (bounded self-tail-recursion, 100k), CML-generated entry, linked only against `asm/nucleus.s` | **confirmed** |
-| 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | none — dotted/variadic lambda-list binding | pending |
-| 13 | `((lambda args args) 1 2 3)` | `(1 2 3)` | yes | none — bare-symbol lambda-list binding | pending |
-| 14 | `((lambda (a b . rest) a) 1)` | error `Arity` | yes | none — variadic lambda still enforcing fixed-param arity | pending |
-| 15 | `(let ((second (lambda (x) (quote shadowed)))) (second (quote (1 2 3))))` | `shadowed` | yes | none — ordinary-binding shadowing through `let`'s lambda-lowering | pending |
+| 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | `cml` commit `1104657` (`tests/x86_top_level_let_test.rs::row12_corpus_fixture_exact_witness`) proves variadic lambda application with right-to-left `wsm_cons` folding, returning `(3 4 5)` linked against `asm/nucleus.s` | **confirmed** |
+| 13 | `((lambda args args) 1 2 3)` | `(1 2 3)` | yes | `cml` commit `1104657` (`tests/x86_top_level_let_test.rs::row13_corpus_fixture_exact_witness`) proves all-rest lambda application with right-to-left `wsm_cons` folding, returning `(1 2 3)` linked against `asm/nucleus.s` | **confirmed** |
+| 14 | `((lambda (a b . rest) a) 1)` | error `Arity` | yes | `cml` commit `1104657` (`tests/x86_freestanding_test.rs::variadic_lambda_under_arity_is_rejected`) proves fail-closed compile-time rejection with `InvalidArity { expected: 2, actual: 1 }` | **confirmed** |
+| 15 | `(let ((second (lambda (x) (quote shadowed)))) (second (quote (1 2 3))))` | `shadowed` | yes | `cml` commit `6ce577f` (`tests/x86_top_level_let_test.rs`) proves top-level lexical `let` closure application within its body, linked against `asm/nucleus.s`, returning `shadowed` | **confirmed** |
 | 16 | `(let ((car (lambda (x) (quote shadowed)))) (car (quote (1 2))))` | error `InvalidForm` | yes | none — Canon 0+7 spellings unshadowable (Contract 6.0) | pending |
 | 17 | `(defmacro my-list items (cons (quote quote) (cons items (quote ())))) (my-list 1 2 3)` | `(1 2 3)` | yes | none — no macro support in the asm nucleus | unsupported |
 
@@ -70,20 +70,24 @@ absent.
 
 ## Honest summary
 
-**3 of these fixtures (`quote`, `cond`, and `count-down`/`countdown` —
-rows 1, 7, and 11) have a byte-exact compiled/native witness today**,
-up from 1 earlier the same day (2026-09-12). Both `cond` and `quote`
-closed via real discoveries, not new compiler work:
-`wsm-os-lisp` had already added bounded `Ir::Cond`/`Ir::Quote` support
-to `cml`'s `x86_freestanding` backend for its own M5A milestone, and
-`cml`'s own CLI (`cml x86-asm`) already compiles a bare `(quote radio)`
-file cleanly — neither needed the general first-class application
-support that's still genuinely missing for the *real* `my-eval-cond`
-function inside `meta-eval.my`. Everything else is either `related`
-(same primitive proven, different literal — real evidence of
-mechanism, not of the specific fixture) or `pending`/`unsupported`
-(explicitly named, per #4's acceptance, rather than silently assumed
-passing).
+**7 of these fixtures (`quote` [row 1], `cond` [row 7],
+`count-down`/`countdown` [row 11], variadic rest list [row 12],
+all-rest list [row 13], variadic under-arity error [row 14], and
+`let` closure application [row 15]) have a byte-exact compiled/native
+witness today.** `quote` and `cond` closed via `wsm-os-lisp`/`cml`
+discoveries on 2026-09-12 — `cml`'s CLI already compiled a bare
+`(quote radio)` file, and `wsm-os-lisp` had already added bounded
+`Ir::Cond`/`Ir::Quote` support to `cml`'s `x86_freestanding` backend
+for its own M5A milestone; neither needed the general first-class
+application support that's still genuinely missing for the *real*
+`my-eval-cond` function inside `meta-eval.lisp`. Row 15 closed via
+`cml` commit `6ce577f`, and rows 12–14 closed via `cml` commit
+`1104657` (admitting direct variadic and all-rest lambda application
+with `wsm_cons` list packing and fail-closed arity checking).
+Everything else is either `related` (same primitive proven, different
+literal — real evidence of mechanism, not of the specific fixture) or
+`pending`/`unsupported` (explicitly named, per #4's acceptance, rather
+than silently assumed passing).
 
 ## What would move a `related`/`pending` row to `confirmed`
 
@@ -92,21 +96,22 @@ commitment — but for a future session picking this up: the honest gap
 between `related` and `confirmed` for rows 2/3/4/5/6/9 is almost always
 "the harness needs a CML-generated entry stub for *this exact
 expression's* literals" (a mechanical CML-invocation step, not a new
-asm primitive) — rows 1 and 7 just went through exactly this process
-and turned out to already work. Rows 12-16 (`pending`) need a witness
-written from scratch (variadic/dotted lambda-lists, `let`-shadowing —
-untested whether `x86_freestanding` already handles these; worth
-trying the same way before assuming new compiler work is needed).
-Rows 8/10/17 (`unsupported`) need new nucleus capability (rational
-arithmetic, macros) and are out of current scope per
-`docs/AUTHORITY.md`, not next steps.
+asm primitive) — rows 1 and 7 went through exactly this process and
+turned out to already work, and rows 12–15 turned out to already work
+too once `cml` admitted general fixed/variadic lambda application.
+Row 16 (`pending`) is the one real remaining gap in this category:
+`let`-shadowing of a Canon 0+7 name (`car`) rejected as `InvalidForm`
+— needs a witness proving the compiler actually fails closed on this,
+not just that the oracle expects it to. Rows 8/10/17 (`unsupported`)
+need new nucleus capability (rational arithmetic, macros) and are out
+of current scope per `docs/AUTHORITY.md`, not next steps.
 
 ## Parity gate note (#4 acceptance: "deliberate mutation of one
 result/error/provenance field is caught")
 
 **Partially closed, 2026-09-12**:
 `harness/tests/compiler_corpus_parity.rs` mechanically checks that
-every `(compiler-corpus . t)` fixture in `conformance.my` still has the
+every `(compiler-corpus . t)` fixture in `conformance.lisp` still has the
 exact `expr`/`expected`/`error` this table's rows document — it
 fails closed (wrong count, missing fixture, or changed outcome) if
 my-lisp mutates a tagged fixture without this table being updated to

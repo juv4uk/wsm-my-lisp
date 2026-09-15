@@ -30,21 +30,32 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build my-lisp CLI (pinned authority 8ffffce9 MACHINE-CONTRACT-1)
+        run: |
+          cargo build --release --locked --manifest-path external/my-lisp/Cargo.toml -p my-lisp-cli
+
       - name: Lisp-first authority guard (P0 #15)
-        run: bash scripts/check-lisp-first-authority.sh
+        shell: bash
+        run: |
+          external/my-lisp/target/release/my-lisp scripts/check-lisp-first-authority.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
+
+      - name: Machine contract gate (P0 #23)
+        shell: bash
+        run: |
+          external/my-lisp/target/release/my-lisp scripts/check-machine-contracts.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
 
       - name: Verify pinned my-lisp semantic authority
         shell: bash
         run: |
-          expected=6d71151c7b3fd1825f4523087b176bdbe45ec809
+          expected=8ffffce9b42a68bd7cb9939af6beb20533840b8d
           actual="$(git -C external/my-lisp rev-parse HEAD)"
           test "$actual" = "$expected"
-          test -f external/my-lisp/lib/meta-eval.my
-          grep -q '^(def my-eval-cond-result$' external/my-lisp/lib/meta-eval.my
-          grep -q '^(def my-eval-result$' external/my-lisp/lib/meta-eval.my
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+          test -f external/my-lisp/lib/meta-eval.lisp
+          grep -q '^(def my-eval-cond-result$' external/my-lisp/lib/meta-eval.lisp
+          grep -q '^(def my-eval-result$' external/my-lisp/lib/meta-eval.lisp
 
       - name: Check semantic authority guard
         run: |

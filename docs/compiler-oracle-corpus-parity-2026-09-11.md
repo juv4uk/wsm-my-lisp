@@ -44,7 +44,7 @@ this commit — no row omitted or collapsed.
 
 | # | expr | expected/error | WSM/meta | compiled/native target | status |
 |---|---|---|---|---|---|
-| 1 | `(quote radio)` | `radio` | yes | none | pending |
+| 1 | `(quote radio)` | `radio` | yes | `harness-quote` (added 2026-09-12) — real `cml x86-asm` CLI compile of a file containing this exact source; linked against this repo's `asm/nucleus.s`, executed, returns `radio` | **confirmed** |
 | 2 | `(atom (quote radio))` | `t` | yes | `harness-atom` tests `(atom (quote ()))`, different literal | related |
 | 3 | `(eq (quote radio) (quote radio))` | `t` | yes | `harness-eq-symbol` (added 2026-09-12) proves `wsm_eq` on matching `Symbol` ids directly — literal symbol *names* (`radio` vs. image-local id `1`) still differ from a real CML-compiled entry, so this stays `related` rather than byte-exact `confirmed` | related (upgraded from Fixnum-only to Symbol-level) |
 | 4 | `(car (quote (radio antenna)))` | `radio` | yes | `harness-cons` calls `wsm_car` on `(cons (quote A) (quote B))`'s result, different literals/shape | related |
@@ -70,15 +70,24 @@ absent.
 
 ## Honest summary
 
-**6 of these fixtures (`count-down`/`countdown` [row 11], `cond` [row 7],
-variadic rest list [row 12], all-rest list [row 13], variadic under-arity error [row 14],
-and `let` closure application [row 15]) have a byte-exact compiled/native witness today.**
-The `cond` row closed via `wsm-os-lisp` discovery, row 15 closed via `cml` commit `6ce577f`,
-and rows 12–14 closed via `cml` commit `1104657` (admitting direct variadic and all-rest
-lambda application with `wsm_cons` list packing and fail-closed arity checking). Everything
-else is either `related` (same primitive proven, different literal — real evidence of
-mechanism, not of the specific fixture) or `pending`/`unsupported` (explicitly named, per
-#4's acceptance, rather than silently assumed passing).
+**7 of these fixtures (`quote` [row 1], `cond` [row 7],
+`count-down`/`countdown` [row 11], variadic rest list [row 12],
+all-rest list [row 13], variadic under-arity error [row 14], and
+`let` closure application [row 15]) have a byte-exact compiled/native
+witness today.** `quote` and `cond` closed via `wsm-os-lisp`/`cml`
+discoveries on 2026-09-12 — `cml`'s CLI already compiled a bare
+`(quote radio)` file, and `wsm-os-lisp` had already added bounded
+`Ir::Cond`/`Ir::Quote` support to `cml`'s `x86_freestanding` backend
+for its own M5A milestone; neither needed the general first-class
+application support that's still genuinely missing for the *real*
+`my-eval-cond` function inside `meta-eval.lisp`. Row 15 closed via
+`cml` commit `6ce577f`, and rows 12–14 closed via `cml` commit
+`1104657` (admitting direct variadic and all-rest lambda application
+with `wsm_cons` list packing and fail-closed arity checking).
+Everything else is either `related` (same primitive proven, different
+literal — real evidence of mechanism, not of the specific fixture) or
+`pending`/`unsupported` (explicitly named, per #4's acceptance, rather
+than silently assumed passing).
 
 ## What would move a `related`/`pending` row to `confirmed`
 
@@ -87,10 +96,15 @@ commitment — but for a future session picking this up: the honest gap
 between `related` and `confirmed` for rows 2/3/4/5/6/9 is almost always
 "the harness needs a CML-generated entry stub for *this exact
 expression's* literals" (a mechanical CML-invocation step, not a new
-asm primitive). Rows 1/12-14/16 (`pending`) need a witness written from
-scratch, not just re-targeted literals (rows 12-14 cover general fixed/variadic application).
-Rows 8/10/17 (`unsupported`) need new nucleus capability (rational arithmetic, macros) and
-are out of current scope per `docs/AUTHORITY.md`, not next steps.
+asm primitive) — rows 1 and 7 went through exactly this process and
+turned out to already work, and rows 12–15 turned out to already work
+too once `cml` admitted general fixed/variadic lambda application.
+Row 16 (`pending`) is the one real remaining gap in this category:
+`let`-shadowing of a Canon 0+7 name (`car`) rejected as `InvalidForm`
+— needs a witness proving the compiler actually fails closed on this,
+not just that the oracle expects it to. Rows 8/10/17 (`unsupported`)
+need new nucleus capability (rational arithmetic, macros) and are out
+of current scope per `docs/AUTHORITY.md`, not next steps.
 
 ## Parity gate note (#4 acceptance: "deliberate mutation of one
 result/error/provenance field is caught")

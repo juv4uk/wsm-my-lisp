@@ -71,6 +71,7 @@ ABI as CML/`wsm-os-target`. Bounded 4096-byte arena, no GC.
 | `harness-countdown` | `done` (100000) |
 | `harness-closure` | Stage2 identity witness |
 | `harness-cond` | `right` (real cml front-end compile, wsm-my-lisp#4) |
+| `harness-quote` | `radio` (real cml front-end compile, wsm-my-lisp#4) |
 
 **Next:** Stage2/Stage3 meta-eval on asm nucleus; `dll/` freeze + migration
 per inventory doc; QEMU later.

@@ -51,3 +51,7 @@ path = "src/harness_closure.rs"
 [[bin]]
 name = "harness-cond"
 path = "src/harness_cond.rs"
+
+[[bin]]
+name = "harness-quote"
+path = "src/harness_quote.rs"

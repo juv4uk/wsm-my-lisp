@@ -44,7 +44,7 @@ this commit — no row omitted or collapsed.
 
 | # | expr | expected/error | WSM/meta | compiled/native target | status |
 |---|---|---|---|---|---|
-| 1 | `(quote radio)` | `radio` | yes | none | pending |
+| 1 | `(quote radio)` | `radio` | yes | `harness-quote` (added 2026-09-12) — real `cml x86-asm` CLI compile of a file containing this exact source; linked against this repo's `asm/nucleus.s`, executed, returns `radio` | **confirmed** |
 | 2 | `(atom (quote radio))` | `t` | yes | `harness-atom` tests `(atom (quote ()))`, different literal | related |
 | 3 | `(eq (quote radio) (quote radio))` | `t` | yes | `harness-eq-symbol` (added 2026-09-12) proves `wsm_eq` on matching `Symbol` ids directly — literal symbol *names* (`radio` vs. image-local id `1`) still differ from a real CML-compiled entry, so this stays `related` rather than byte-exact `confirmed` | related (upgraded from Fixnum-only to Symbol-level) |
 | 4 | `(car (quote (radio antenna)))` | `radio` | yes | `harness-cons` calls `wsm_car` on `(cons (quote A) (quote B))`'s result, different literals/shape | related |
@@ -70,17 +70,20 @@ absent.
 
 ## Honest summary
 
-**2 of these fixtures (`count-down`/`countdown` and, as of 2026-09-12,
-`cond`) have a byte-exact compiled/native witness today.** The `cond`
-row closed via a real discovery, not new compiler work: `wsm-os-lisp`
-had already added bounded `Ir::Cond`/`Ir::Quote` support to `cml`'s
-`x86_freestanding` backend for its own M5A milestone — this fixture
-needed none of the general first-class application support that's
-still genuinely missing for the *real* `my-eval-cond` function inside
-`meta-eval.my`. Everything else is either `related` (same primitive
-proven, different literal — real evidence of mechanism, not of the
-specific fixture) or `pending`/`unsupported` (explicitly named, per
-#4's acceptance, rather than silently assumed passing).
+**3 of these fixtures (`quote`, `cond`, and `count-down`/`countdown` —
+rows 1, 7, and 11) have a byte-exact compiled/native witness today**,
+up from 1 earlier the same day (2026-09-12). Both `cond` and `quote`
+closed via real discoveries, not new compiler work:
+`wsm-os-lisp` had already added bounded `Ir::Cond`/`Ir::Quote` support
+to `cml`'s `x86_freestanding` backend for its own M5A milestone, and
+`cml`'s own CLI (`cml x86-asm`) already compiles a bare `(quote radio)`
+file cleanly — neither needed the general first-class application
+support that's still genuinely missing for the *real* `my-eval-cond`
+function inside `meta-eval.my`. Everything else is either `related`
+(same primitive proven, different literal — real evidence of
+mechanism, not of the specific fixture) or `pending`/`unsupported`
+(explicitly named, per #4's acceptance, rather than silently assumed
+passing).
 
 ## What would move a `related`/`pending` row to `confirmed`
 
@@ -89,10 +92,14 @@ commitment — but for a future session picking this up: the honest gap
 between `related` and `confirmed` for rows 2/3/4/5/6/9 is almost always
 "the harness needs a CML-generated entry stub for *this exact
 expression's* literals" (a mechanical CML-invocation step, not a new
-asm primitive). Rows 1/12-16 (`pending`) need a witness written from
-scratch, not just re-targeted literals. Rows 8/10/17 (`unsupported`)
-need new nucleus capability (rational arithmetic, macros) and are out
-of current scope per `docs/AUTHORITY.md`, not next steps.
+asm primitive) — rows 1 and 7 just went through exactly this process
+and turned out to already work. Rows 12-16 (`pending`) need a witness
+written from scratch (variadic/dotted lambda-lists, `let`-shadowing —
+untested whether `x86_freestanding` already handles these; worth
+trying the same way before assuming new compiler work is needed).
+Rows 8/10/17 (`unsupported`) need new nucleus capability (rational
+arithmetic, macros) and are out of current scope per
+`docs/AUTHORITY.md`, not next steps.
 
 ## Parity gate note (#4 acceptance: "deliberate mutation of one
 result/error/provenance field is caught")

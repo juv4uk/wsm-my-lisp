@@ -2,6 +2,7 @@
 name = "wsm-my-lisp-harness"
 version = "0.1.0"
 edition = "2021"
+license-file = "../LICENSE"
 
 [dependencies]
 # Представлення цільового слова беремо з ратифікованого target contract,

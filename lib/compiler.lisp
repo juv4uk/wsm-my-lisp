@@ -30,20 +30,6 @@
       ((atom form) (quote ()))
       (t (eq (car form) name)))))
 
-; Semantic authority is the binary SID projection, not a second compiler-local
-; spelling table.  The registry reader/generated projection resolves every
-; admitted surface to its eight-bit identity before lowering.
-(def compiler-semantic-id
-  (lambda (name)
-    (my-semantic-id-for-surface name)))
-
-(def compiler-head-id?
-  (lambda (form sid)
-    (cond
-      ((atom form) (quote ()))
-      ((equal? (compiler-semantic-id (car form)) sid) t)
-      (t (quote ())))))
-
 (def compiler-primitive?
   (lambda (name)
     (cond

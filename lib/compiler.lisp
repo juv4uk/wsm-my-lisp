@@ -32,9 +32,23 @@
 
 (def compiler-clause
   (lambda (clause)
-    (list (compiler-form (car clause))
-          (car (cdr clause))
-          (compiler-form (car (cdr (cdr clause)))))))
+    (cond
+      ((compiler-clause-shape? clause)
+       (list (compiler-form (car clause))
+             (car (cdr clause))
+             (compiler-form (car (cdr (cdr clause))))))
+      (t (list (quote compile-error)
+               (quote malformed-cond-clause)
+               clause)))))
+
+(def compiler-clause-shape?
+  (lambda (clause)
+    (cond
+      ((atom clause) (quote ()))
+      ((atom (cdr clause)) (quote ()))
+      ((atom (cdr (cdr clause))) (quote ()))
+      ((not (atom (cdr (cdr (cdr clause))))) (quote ()))
+      (t t))))
 
 (def compiler-clauses
   (lambda (clauses)

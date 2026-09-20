@@ -30,6 +30,18 @@
       ((atom form) (quote ()))
       (t (eq (car form) name)))))
 
+(def compiler-primitive?
+  (lambda (name)
+    (cond
+      ((eq name (quote +)) t)
+      ((eq name (quote -)) t)
+      ((eq name (quote cons)) t)
+      ((eq name (quote car)) t)
+      ((eq name (quote cdr)) t)
+      ((eq name (quote eq)) t)
+      ((eq name (quote atom)) t)
+      (t (quote ())))))
+
 (def compiler-clause
   (lambda (clause)
     (cond
@@ -71,6 +83,10 @@
              (compiler-clauses (cdr form))))
       ((atom form)
        (list (quote var) form))
+      ((compiler-primitive? (car form))
+       (list (quote prim)
+             (car form)
+             (compiler-map compiler-form (cdr form))))
       (t
        (list (quote app)
              (compiler-form (car form))

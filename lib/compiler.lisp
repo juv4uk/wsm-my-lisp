@@ -42,6 +42,12 @@
       ((eq name (quote atom)) t)
       (t (quote ())))))
 
+(def compiler-nil?
+  (lambda (form)
+    (cond
+      ((atom form) (eq form (quote ())))
+      (t (quote ())))))
+
 (def compiler-clause
   (lambda (clause)
     (cond
@@ -72,6 +78,8 @@
 (def compiler-form
   (lambda (form)
     (cond
+      ((compiler-nil? form)
+       (list (quote nil)))
       ((compiler-quote? form)
        (list (quote quote) (car (cdr form))))
       ((compiler-head? form (quote lambda))

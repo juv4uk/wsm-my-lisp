@@ -47,11 +47,11 @@
 
 ### Стадія 3: замикання self-hosting
 
-Момент, коли `meta-eval.lisp` цілком виконується на asm-ядрі без участі Rust-evaluator під час виконання — **"WSM виконує WSM на моєму залізі"** перестає бути метафорою. Rust лишається offline-компілятором/tooling/oracle, не runtime-залежністю.
+Момент, коли `meta-eval.lisp` цілком виконується на target без прихованої semantic authority ззовні — **"WSM виконує WSM на моєму залізі"** перестає бути метафорою. Rust/C можуть залишатися bootstrap/runtime/tooling substrates, але їхня роль і provenance мають бути явними.
 
 ### Стадія 4 (РІШЕННЯ УХВАЛЕНО, owner directive 2026-09-13): примітиви — асемблер, не Rust
 
-`wsm_cons`/`wsm_car`/`wsm_cdr`/`wsm_eq`/`wsm_atom` мають ручну asm-реалізацію в цьому репо. Директива власника 2026-09-13 (зафіксована як `f43e94f`, дзеркально в README/AUTHORITY/guard) фіксує production path: **Lisp + x86-64 assembler only, C=0, Rust=0**. Rust лишається виключно offline-oracle/tooling; паралельного Rust-runtime примітивів у репо більше немає (`dll/` видалено, Phase D `wsm-my-lisp#15`). Зберігається принцип "не performance escape hatch": спочатку WSM, якщо повільно — виміряти, якщо CML lowering може оптимізувати — виправити lowering, лише тоді — hand-written asm із названою причиною.
+`wsm_cons`/`wsm_car`/`wsm_cdr`/`wsm_eq`/`wsm_atom` мають ручну asm-реалізацію в цьому репо. Архітектурне правило тепер Lisp-first, але C і Rust дозволені як bootstrap/runtime/tooling substrates із provenance; жоден substrate не стає semantic authority автоматично. Зберігається принцип "не performance escape hatch": спочатку WSM, якщо повільно — виміряти, якщо CML lowering може оптимізувати — виправити lowering, лише тоді — hand-written asm із названою причиною.
 
 ### Стадія 5: `Tag::True` — fpga-lisp ISA до кінцевого затвердження
 

@@ -18,8 +18,8 @@ fixtures, parity, CML admission, and native target execution.
 ```text
 1. Lisp           — system logic and self-hosting growth
 2. x86-64 Assembler — minimal machine substrate (ABI, primitives, hot paths when justified)
-3. C              — 0 in production/self-hosting execution path
-4. Rust           — 0 in production/self-hosting execution path
+3. C              — permitted as a bootstrap/runtime substrate with provenance
+4. Rust           — permitted as a bootstrap/runtime/tooling substrate with provenance
 ```
 
 Rust host embed work (formerly `dll/`: reader, eval, FFI session) has
@@ -84,7 +84,7 @@ capabilities у Rust**; міграція → Cyberpunk track.
 `dll/` видалено 2026-09-11 (Phase D). Деталі: `docs/archive/completed-plans/dll-inventory-2026-09-11.md`, `docs/AUTHORITY.md`.
 Точка входу в документацію: `docs/CURRENT.md`.
 
-**Архітектурна корекція (2026-09-13, власник):** Production/self-hosting шлях — **Lisp + x86-64 assembler**. C та Rust = 0 у виконуваному ланцюжку. Hand-written entry-*.s мають стати CML-generated artifacts з provenance. Не писати eval/apply/reader/environment semantics у ASM — це Lisp/CML territory.
+**Архітектурне уточнення:** Production/self-hosting шлях має Lisp як semantic authority, але C і Rust дозволені як bootstrap, runtime, tooling або target substrates із явним provenance. Вони не стають semantic authority лише через участь у виконанні. Не писати eval/apply/reader/environment semantics у ASM — це Lisp/CML territory.
 
 ## Ліцензія
 

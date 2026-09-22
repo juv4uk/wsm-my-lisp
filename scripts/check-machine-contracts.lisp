@@ -95,14 +95,15 @@
   (t (armed-violation "boundary lacks semantic-id-from-isa forbidden -- semantic IDs could leak into ISA labels")))
 
 ; --- 4. Semantic IDs must be consumed, not re-invented at WSM ---
-; The witness slice is CONS/CAR/CDR (memory IDs 0002/0004/0005/0006 in the
-; semantic lowering profile). WSM must not mint its own IDs from asm labels;
+; The witness slice is CONS/CAR/CDR (canonical 8-bit SIDs
+; 00000010/00000100/00000101/00000110 in the semantic lowering profile). WSM
+; must not mint its own IDs from asm labels;
 ; it may only project these Lisp-owned IDs.
-(let ((ids (process-out "grep -oE '[ ]*\\(\\(000[2-6] ' external/my-lisp/lib/machine/lowering/semantic-x86-64.lisp 2>/dev/null | head -1")))
-  (cond
-    ((string-empty? ids)
-     (armed-violation "semantic-x86-64.lisp missing admitted-slice semantic IDs (0002/0004/0005/0006) -- cannot consume asserted meanings"))
-    (t (princ "MACHINE-CONTRACT OK: admitted-slice semantic IDs findable in Lisp-owned lowering profile\n"))))
+(cond
+  ((process-ok? "for sid in 00000010 00000100 00000101 00000110; do grep -q \"$sid\" external/my-lisp/lib/machine/lowering/semantic-x86-64.lisp || exit 1; done")
+   (princ "MACHINE-CONTRACT OK: admitted-slice canonical 8-bit SIDs findable in Lisp-owned lowering profile\n"))
+  (t
+   (armed-violation "semantic-x86-64.lisp missing admitted-slice canonical 8-bit SIDs (00000010/00000100/00000101/00000110) -- cannot consume asserted meanings")))
 
 ; --- 5. WSM local mirrors must not claim independent machine text authority ---
 ; The nucleus is a bootstrap/mechanism projection of the pinned target contract.

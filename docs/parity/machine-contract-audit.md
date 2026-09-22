@@ -1,7 +1,7 @@
 # Machine Contract Audit — MACHINE-CONTRACT-1 (wsm-my-lisp#23)
 
 Date: 2026-09-14
-Pinned my-lisp: `8ffffce9` (origin/main, contains machine-lowering-boundary.lisp + memory-layout-contract.lisp + lib/machine/**)
+Pinned my-lisp: `a5ade0b` (origin/main, contains machine-lowering-boundary.lisp + memory-layout-contract.lisp + lib/machine/**)
 Verification gate: `scripts/check-machine-contracts.lisp` (Lisp-first, CI-invoked via `my-lisp`)
 Audit type: fail-closed; unknown/missing = RED
 
@@ -48,7 +48,7 @@ Audit type: fail-closed; unknown/missing = RED
 
 | Check | Fast CI | Deep CI |
 |---|---|---|
-| Pin `external/my-lisp` matches `8ffffce9` | ✅ | ✅ |
+| Pin `external/my-lisp` matches `a5ade0b` | ✅ | ✅ |
 | `machine-lowering-boundary.lisp` present + schema /2 | ✅ | ✅ |
 | `memory-layout-contract.lisp` present + version (1 0) | ✅ | ✅ |
 | `lib/machine/lowering/semantic-x86-64.lisp` present | ✅ | ✅ |

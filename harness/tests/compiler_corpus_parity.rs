@@ -53,7 +53,7 @@ fn tagged_fixtures() -> Vec<(String, Outcome)> {
 
 /// The exact 17 fixtures documented in
 /// docs/compiler-oracle-corpus-parity-2026-09-11.md, as of my-lisp
-/// commit a5ade0b (the pinned external/my-lisp submodule commit).
+/// current pinned external/my-lisp commit a5ade0b.
 /// Update BOTH this list and that document together if my-lisp adds,
 /// removes, or changes a `compiler-corpus` fixture -- that is the
 /// point of this test failing: it forces the parity doc to stay honest

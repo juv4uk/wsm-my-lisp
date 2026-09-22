@@ -1,7 +1,7 @@
 # Аудит Machine Contract — MACHINE-CONTRACT-1 (wsm-my-lisp#23)
 
 Дата: 2026-09-14
-Pinned my-lisp: `8ffffce9` (origin/main, містить machine-lowering-boundary.lisp + memory-layout-contract.lisp + lib/machine/**)
+Pinned my-lisp: `a5ade0b` (origin/main, містить machine-lowering-boundary.lisp + memory-layout-contract.lisp + lib/machine/**)
 Verification gate: `scripts/check-machine-contracts.lisp` (Lisp-first, у CI через `my-lisp`)
 Тип аудиту: fail-closed; невідомо/відсутньо = RED
 
@@ -48,7 +48,7 @@ Verification gate: `scripts/check-machine-contracts.lisp` (Lisp-first, у CI ч�
 
 | Перевірка | Fast CI | Deep CI |
 |---|---|---|
-| Пін `external/my-lisp` = `8ffffce9` | ✅ | ✅ |
+| Пін `external/my-lisp` = `a5ade0b` | ✅ | ✅ |
 | `machine-lowering-boundary.lisp` присутній + schema /2 | ✅ | ✅ |
 | `memory-layout-contract.lisp` присутній + version (1 0) | ✅ | ✅ |
 | `lib/machine/lowering/semantic-x86-64.lisp` присутній | ✅ | ✅ |

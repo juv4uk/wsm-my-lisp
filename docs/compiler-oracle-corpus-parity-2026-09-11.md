@@ -1,9 +1,12 @@
-# Compiler oracle corpus parity — wsm-my-lisp#4 (2026-09-11)
+# Compiler oracle corpus parity — wsm-my-lisp#4 (2026-09-11; oracle refresh 2026-09-22)
 
-Submodule `external/my-lisp` bumped `ccacc68` → `a5ade0b` (my-lisp's own
-current semantic-projection commit) so this repo consumes the current
-`(compiler-corpus . t)`-tagged fixture set, rather than an earlier commit
-that predates that tagging. This document
+Submodule `external/my-lisp` bumped `ccacc68` → `6d71151` (my-lisp's own
+`#67` corpus-freeze commit) so this repo consumes the same
+`(compiler-corpus . t)`-tagged fixture set my-lisp actually froze,
+rather than an earlier commit that predates that tagging. The table was refreshed on
+2026-09-22 against the current pinned authority `a5ade0b`; the fixture set is still
+17 rows, but three constitutive outcomes now use explicit structural/identity records.
+This document
 is the three-column observation table #4's acceptance criteria ask
 for, built by reading `wsm-my-lisp/harness/src/harness_*.rs` directly
 against `external/my-lisp/tests/fixtures/conformance.lisp`'s 17 tagged
@@ -36,23 +39,36 @@ records — not assumed or copied from an earlier audit.
 - **unsupported** — outside current nucleus capability (rational
   arithmetic, macros) — not a bug, a scope boundary.
 
+## Profile boundary
+
+CI for the 2026-09-22 refresh is stacked on consumer-audit PR #44 only so the
+already-reviewed canonical-SID presence fix runs first. This ledger change is
+otherwise independent of #44 and does not change Core1 source or compiler source.
+
+
+The **my-lisp oracle** column tracks the current pinned my-lisp contract and therefore
+now records `structural-kind` / `identity-relation` values where the authority does.
+That does **not** retroactively change Core1's historical S0/S1 T/NIL control semantics.
+A WSM harness that proves the underlying machine mechanism with historical/native
+projection remains `related` unless it reproduces the current oracle's exact observable
+value. No Core1 witness is upgraded, downgraded, or reinterpreted by this ledger refresh.
+
 ## The table
 
-All 17 `compiler-corpus`-tagged records, verified by `grep -n
-'compiler-corpus' external/my-lisp/tests/fixtures/conformance.lisp` at
-this commit — no row omitted or collapsed.
+All 17 `compiler-corpus`-tagged records, verified against pinned
+`external/my-lisp@a5ade0b` — no row omitted or collapsed.
 
 | # | expr | expected/error | WSM/meta | compiled/native target | status |
 |---|---|---|---|---|---|
 | 1 | `(quote radio)` | `radio` | yes | `harness-quote` (added 2026-09-12) — real `cml x86-asm` CLI compile of a file containing this exact source; linked against this repo's `asm/nucleus.s`, executed, returns `radio` | **confirmed** |
-| 2 | `(atom (quote radio))` | `(structural-kind atom)` | yes | `harness-atom` tests `(atom (quote ()))`, different literal | related |
-| 3 | `(eq (quote radio) (quote radio))` | `(identity-relation same)` | yes | `harness-eq-symbol` (added 2026-09-12) proves `wsm_eq` on matching `Symbol` ids directly — literal symbol *names* (`radio` vs. image-local id `1`) still differ from a real CML-compiled entry, so this stays `related` rather than byte-exact `confirmed` | related (upgraded from Fixnum-only to Symbol-level) |
+| 2 | `(atom (quote radio))` | `(structural-kind atom)` | yes | `harness-atom` tests `(atom (quote ()))` through the historical/native projection; it proves mechanism, not the current structural-result record | related |
+| 3 | `(eq (quote radio) (quote radio))` | `(identity-relation same)` | yes | `harness-eq-symbol` proves matching `Symbol` identity in the historical/native projection; it does not emit the current `identity-relation` record, so this stays mechanism-only evidence | related |
 | 4 | `(car (quote (radio antenna)))` | `radio` | yes | `harness-cons` calls `wsm_car` on `(cons (quote A) (quote B))`'s result, different literals/shape | related |
 | 5 | `(cdr (quote (radio antenna)))` | `(antenna)` | yes | `harness-cons` calls `wsm_cdr` similarly, different literals/shape | related |
 | 6 | `(cons (quote radio) (quote (antenna)))` | `(radio antenna)` | yes | `harness-cons` proves `(cons (quote A) (quote B))` → `(A . B)` — different structure (atom+list here vs atom+atom there) | related |
 | 7 | `(cond (() (quote wrong)) (t (quote right)))` | `right` | yes | `harness-cond` (added 2026-09-12) — real cml front-end compile (`parser::parse` → `lower::lower_program` → `x86_freestanding`), not hand-built IR; linked against this repo's `asm/nucleus.s`, executed, returns `right` | **confirmed** |
 | 8 | `(/ 5 6 8 7)` | `5/336` | yes | none — no rational-arithmetic asm primitive exists in `asm/nucleus.s` | unsupported |
-| 9 | `(eq (lambda (x) x) (lambda (x) x))` | `(identity-relation distinct)` | yes | `harness-closure` proves closure identity via direct `wsm_closure_new` ABI calls, not through evaluated `(lambda ...)` sugar | related |
+| 9 | `(eq (lambda (x) x) (lambda (x) x))` | `(identity-relation distinct)` | yes | `harness-closure` proves closure identity distinction via direct `wsm_closure_new` ABI calls, but does not emit the current relation record through the exact source expression | related |
 | 10 | `(defmacro foo)` | error `Arity` | yes | none — no macro support in the asm nucleus | unsupported |
 | 11 | `(def count-down (lambda (n) (cond ((eq n 0) (quote done)) (t (count-down (- n 1)))))) (count-down 100000)` | `done` | yes | `harness-countdown` — same shape (bounded self-tail-recursion, 100k), CML-generated entry, linked only against `asm/nucleus.s` | **confirmed** |
 | 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | `cml` commit `1104657` (`tests/x86_top_level_let_test.rs::row12_corpus_fixture_exact_witness`) proves variadic lambda application with right-to-left `wsm_cons` folding, returning `(3 4 5)` linked against `asm/nucleus.s` | **confirmed** |

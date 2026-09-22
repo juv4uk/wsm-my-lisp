@@ -53,7 +53,7 @@ fn tagged_fixtures() -> Vec<(String, Outcome)> {
 
 /// The exact 17 fixtures documented in
 /// docs/compiler-oracle-corpus-parity-2026-09-11.md, as of my-lisp
-/// commit 6d71151 (the pinned external/my-lisp submodule commit).
+/// current pinned external/my-lisp commit a5ade0b.
 /// Update BOTH this list and that document together if my-lisp adds,
 /// removes, or changes a `compiler-corpus` fixture -- that is the
 /// point of this test failing: it forces the parity doc to stay honest
@@ -61,10 +61,10 @@ fn tagged_fixtures() -> Vec<(String, Outcome)> {
 fn documented_fixtures() -> Vec<(&'static str, Outcome)> {
     vec![
         ("(quote radio)", Outcome::Expected("radio".into())),
-        ("(atom (quote radio))", Outcome::Expected("t".into())),
+        ("(atom (quote radio))", Outcome::Expected("(structural-kind atom)".into())),
         (
             "(eq (quote radio) (quote radio))",
-            Outcome::Expected("t".into()),
+            Outcome::Expected("(identity-relation same)".into()),
         ),
         (
             "(car (quote (radio antenna)))",
@@ -85,7 +85,7 @@ fn documented_fixtures() -> Vec<(&'static str, Outcome)> {
         ("(/ 5 6 8 7)", Outcome::Expected("5/336".into())),
         (
             "(eq (lambda (x) x) (lambda (x) x))",
-            Outcome::Expected("()".into()),
+            Outcome::Expected("(identity-relation distinct)".into()),
         ),
         ("(defmacro foo)", Outcome::Error("Arity".into())),
         (

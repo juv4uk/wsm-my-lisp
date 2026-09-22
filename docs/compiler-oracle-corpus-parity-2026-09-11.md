@@ -41,6 +41,11 @@ records — not assumed or copied from an earlier audit.
 
 ## Profile boundary
 
+CI for the 2026-09-22 refresh is stacked on consumer-audit PR #44 only so the
+already-reviewed canonical-SID presence fix runs first. This ledger change is
+otherwise independent of #44 and does not change Core1 source or compiler source.
+
+
 The **my-lisp oracle** column tracks the current pinned my-lisp contract and therefore
 now records `structural-kind` / `identity-relation` values where the authority does.
 That does **not** retroactively change Core1's historical S0/S1 T/NIL control semantics.

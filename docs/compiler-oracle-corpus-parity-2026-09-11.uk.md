@@ -1,6 +1,6 @@
 # Паритет компілятора та оракула корпусу — wsm-my-lisp#4 (2026-09-11)
 
-Підмодуль `external/my-lisp` оновлено `ccacc68` → `6d71151` (власний коміт фіксації корпусу my-lisp `#67`), тому цей репозиторій споживає той самий набір фікстур із тегом `(compiler-corpus . t)`, який my-lisp реально зафіксував, а не старіший коміт, що передував цьому тегуванню. Цей документ є триколонковою таблицею спостережень, якої вимагають критерії прийняття #4, складеною шляхом прямого зіставлення `wsm-my-lisp/harness/src/harness_*.rs` із 17 тегованими записами в `external/my-lisp/tests/fixtures/conformance.lisp` — без припущень та копіювання зі старих аудитів.
+Підмодуль `external/my-lisp` оновлено `ccacc68` → `a5ade0b` (поточна семантична проєкція my-lisp), тому цей репозиторій споживає той самий набір фікстур із тегом `(compiler-corpus . t)`, який my-lisp реально зафіксував, а не старіший коміт, що передував цьому тегуванню. Цей документ є триколонковою таблицею спостережень, якої вимагають критерії прийняття #4, складеною шляхом прямого зіставлення `wsm-my-lisp/harness/src/harness_*.rs` із 17 тегованими записами в `external/my-lisp/tests/fixtures/conformance.lisp` — без припущень та копіювання зі старих аудитів.
 
 ## Колонки
 
@@ -22,14 +22,14 @@
 | # | expr | expected/error | WSM/meta | compiled/native target | status |
 |---|---|---|---|---|---|
 | 1 | `(quote radio)` | `radio` | yes | немає | pending |
-| 2 | `(atom (quote radio))` | `t` | yes | `harness-atom` перевіряє `(atom (quote ()))`, інший літерал | related |
-| 3 | `(eq (quote radio) (quote radio))` | `t` | yes | `harness-eq-symbol` доводить `wsm_eq` на символах | related |
+| 2 | `(atom (quote radio))` | `(structural-kind atom)` | yes | `harness-atom` перевіряє `(atom (quote ()))`, інший літерал | related |
+| 3 | `(eq (quote radio) (quote radio))` | `(identity-relation same)` | yes | `harness-eq-symbol` доводить `wsm_eq` на символах | related |
 | 4 | `(car (quote (radio antenna)))` | `radio` | yes | `harness-cons` викликає `wsm_car` на інших літералах | related |
 | 5 | `(cdr (quote (radio antenna)))` | `(antenna)` | yes | `harness-cons` викликає `wsm_cdr` на інших літералах | related |
-| 6 | `(cons (quote radio) (quote (antenna)))` | `radio antenna` | yes | `harness-cons` доводить `(cons (quote A) (quote B))` | related |
+| 6 | `(cons (quote radio) (quote (antenna)))` | `(radio antenna)` | yes | `harness-cons` доводить `(cons (quote A) (quote B))` | related |
 | 7 | `(cond (() (quote wrong)) (t (quote right)))` | `right` | yes | `harness-cond` — реальна компіляція cml (`parser` → `lower` → `x86_freestanding`), зібрано з `asm/nucleus.s`, повертає `right` | **confirmed** |
 | 8 | `(/ 5 6 8 7)` | `5/336` | yes | немає — раціональна арифметика відсутня в `asm/nucleus.s` | unsupported |
-| 9 | `(eq (lambda (x) x) (lambda (x) x))` | `()` | yes | `harness-closure` доводить ідентичність замикань через ABI | related |
+| 9 | `(eq (lambda (x) x) (lambda (x) x))` | `(identity-relation distinct)` | yes | `harness-closure` доводить ідентичність замикань через ABI | related |
 | 10 | `(defmacro foo)` | error `Arity` | yes | немає — підтримка макросів відсутня в asm nucleus | unsupported |
 | 11 | `(def count-down (lambda (n) (cond ((eq n 0) (quote done)) (t (count-down (- n 1)))))) (count-down 100000)` | `done` | yes | `harness-countdown` — обмежена self-tail рекурсія на 100k, згенерована CML | **confirmed** |
 | 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | коміт `cml` `1104657` (`tests/x86_top_level_let_test.rs::row12_corpus_fixture_exact_witness`) доводить варіативне застосування лямбди зі згорткою `wsm_cons` справа наліво, повертає `(3 4 5)` | **confirmed** |

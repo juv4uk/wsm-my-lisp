@@ -2,9 +2,15 @@
 ;
 ; This deliberately starts with a small CML-shaped vocabulary:
 ;   (quote datum)       -> (quote datum)
+;   primitive call      -> (prim SID8 (args-ir ...))
 ;   (callee arg ...)    -> (app callee-ir (args-ir ...))
 ;   (lambda (x) body)   -> (lambda (x) body-ir)
 ;   (cond ...)           -> (cond ...)
+;
+; Function resolution is one-way: source spellings are compared only while
+; recognizing the input form. Once a primitive is resolved, the emitted
+; function-key field is the exact bare SID8 runtime value, never a quoted
+; symbol/string/name alias.
 ;
 ; The result is data, not an evaluator result and not semantic authority. CML
 ; remains the bootstrap backend; my-lisp remains the reference oracle.
@@ -30,16 +36,22 @@
       ((atom form) (quote ()))
       (t (eq (car form) name)))))
 
+(def compiler-primitive-sid
+  (lambda (name)
+    (cond
+      ((eq name (quote atom)) 00000010)
+      ((eq name (quote eq)) 00000011)
+      ((eq name (quote cons)) 00000100)
+      ((eq name (quote car)) 00000101)
+      ((eq name (quote cdr)) 00000110)
+      ((eq name (quote +)) 00001100)
+      ((eq name (quote -)) 00001101)
+      (t (quote ())))))
+
 (def compiler-primitive?
   (lambda (name)
     (cond
-      ((eq name (quote +)) t)
-      ((eq name (quote -)) t)
-      ((eq name (quote cons)) t)
-      ((eq name (quote car)) t)
-      ((eq name (quote cdr)) t)
-      ((eq name (quote eq)) t)
-      ((eq name (quote atom)) t)
+      ((compiler-primitive-sid name) t)
       (t (quote ())))))
 
 (def compiler-nil?
@@ -99,7 +111,7 @@
        (list (quote var) form))
       ((compiler-primitive? (car form))
        (list (quote prim)
-             (car form)
+             (compiler-primitive-sid (car form))
              (compiler-map compiler-form (cdr form))))
       (t
        (list (quote app)

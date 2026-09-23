@@ -8,9 +8,9 @@ my_lisp_repo=${MY_LISP_REPO:-/home/agents/GitHub/my-lisp}
 mccarthy_repo=${MCCARTHY_EVAL_REPO:-/home/agents/GitHub/mccarthy-eval}
 core1_rev=${CORE1_REV:-d359c4885e0609a6c8350daf45de157b40cf48f3}
 seed_rev=1ae9745b66a1439c1929b0d9038c680567118a58
-compiler_rev=c98a9759e03d307583ae8d5b9a555e90375001c0
+compiler_rev=4d59936c02e72370448c2b4bd257603865f58648
 core1_blob=c134b01bb37e45e0b9f29c098d7791538565b8e7
-compiler_blob=de9ffba973756c981f4c6f1f75d736bd31c734c7
+compiler_blob=8015a4b96040e2c9bf6dd889a91527f5d6b2f9bc
 scratch_dir=$(mktemp -d)
 trap 'rm -rf "$scratch_dir"' EXIT
 

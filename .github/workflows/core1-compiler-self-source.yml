@@ -1,0 +1,38 @@
+name: Core1 compiler self-source
+
+on:
+  pull_request:
+    paths:
+      - "lib/compiler.lisp"
+      - "scripts/check-core1-compiler-consumer.sh"
+      - ".github/workflows/core1-compiler-self-source.yml"
+  workflow_dispatch:
+
+jobs:
+  core1-compiler-self-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout wsm-my-lisp with full local history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Checkout my-lisp history
+        uses: actions/checkout@v5
+        with:
+          repository: juv4uk/my-lisp
+          path: my-lisp-upstream
+          fetch-depth: 0
+
+      - name: Checkout historical mccarthy-eval
+        uses: actions/checkout@v5
+        with:
+          repository: juv4uk/mccarthy-eval
+          path: mccarthy-eval
+          fetch-depth: 0
+
+      - name: Run exact Core1 compiler consumer/self-source witness
+        env:
+          MY_LISP_REPO: ${{ github.workspace }}/my-lisp-upstream
+          MCCARTHY_EVAL_REPO: ${{ github.workspace }}/mccarthy-eval
+        run: scripts/check-core1-compiler-consumer.sh

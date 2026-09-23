@@ -48,7 +48,7 @@ write_probe() {
 }
 
 run_probe() {
-  "$scratch_dir/mccarthy-kernel" "$scratch_dir/$1.lisp"
+  "$scratch_dir/mccarthy-kernel" "$scratch_dir/$1.lisp" | tail -n 1
 }
 
 expect() {

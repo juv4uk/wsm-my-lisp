@@ -7,8 +7,17 @@ this repo owns per `docs/AUTHORITY.md`: proving conformant execution
 on the target without a Rust evaluator, not being semantic authority.
 Canonical `id`/`surfaces` columns are read directly from
 `external/my-lisp/lib/surface/semantic-registry.wsm` at the currently
-pinned commit (`6d71151`) — not retyped from memory, and not owned
+pinned commit (`a5ade0b`) — not retyped from memory, and not owned
 here (my-lisp owns that file; this table only projects it).
+
+**SID8-ONLY (`wsm-my-lisp#49`, ecosystem#16, 2026-09-23):** the
+`semantic id` column is the exact bare eight-bit binary token
+(`00000100`, not `0004`, `4`, `0x04`, or any other decimal/hex
+projection) — a prior revision of this table showed a zero-padded
+*decimal* rendering of each id, which is itself the kind of alternate
+functional-identity spelling the SID8-ONLY law forbids. Width, leading
+zeros and bit order are load-bearing and must never be reformatted for
+display.
 
 ## Columns
 
@@ -34,14 +43,14 @@ here (my-lisp owns that file; this table only projects it).
 
 | canonical identity | semantic id | surfaces | asm symbol | support status | provenance | executable witness |
 |---|---|---|---|---|---|---|
-| cons | 0004 | `en cons`, `uk сполучити`, `sa saṃyuj`, `sym :` | `wsm_cons` | native | hand-written, this repo, Stage 0 | `harness-cons` |
-| car | 0005 | `en car`, `uk перше`, `sa ādi`, `sym :п` | `wsm_car` | native | hand-written, this repo, Stage 0 (happy path) / Stage 2 (Type-error fail-closed, 2026-09-12) | `harness-cons` (calls `wsm_car` on its result) + `harness-car-type-trigger`/`type_error_path.rs` (Type-error abort, subprocess-checked) |
-| cdr | 0006 | `en cdr`, `uk решта`, `sa śeṣa`, `sym :р` | `wsm_cdr` | native | hand-written, this repo, Stage 0 (happy path) / Stage 2 (Type-error fail-closed, 2026-09-12) | `harness-cons` (calls `wsm_cdr` on its result); the abort path is proven via `wsm_car`'s identical trigger since both primitives share the same tag check and `wsm_fail` jump |
-| eq | 0003 | `en eq`, `uk тотожне?`, `sa abheda`, `sym =?` | `wsm_eq` | native | hand-written, this repo, Stage 0 (Fixnum witness) / Stage 2 (Symbol witness, 2026-09-12) | `harness-eq` (Fixnum) + `harness-eq-symbol` (Symbol, closes the gap noted below) |
-| atom | 0002 | `en atom`, `uk атом?`, `sa aṇu`, `sym .?` | `wsm_atom` | native | hand-written, this repo, Stage 0 (positive case) / Stage 2 (negative case, 2026-09-12) | `harness-atom` (`()` is an atom) + `harness-atom-cons` (an allocated `Cons` is not) |
-| quote | 0001 | `en quote`, `uk як-є`, `sa svarūpa`, `sym '` | — (no asm primitive; CML compiles a literal directly) | not-in-scope for a nucleus primitive, but the standalone fixture is witnessed | dispatch lived in `dll/eval.rs`, deleted at Phase D (`1e1549a`); moved to `my-lisp-cyberpunk/host-runtime/build.rs` + `cml`'s compiler for host-primitive dispatch. Separately, `cml x86-asm` already compiles a bare `(quote radio)` file directly (real CLI, not hand-built IR) | `harness-quote` (2026-09-12) — real `cml` CLI compile, linked against this repo's own `asm/nucleus.s`, executed, returns `radio`, matching the `conformance.lisp` oracle (wsm-my-lisp#4 row 1) |
-| cond | 0007 | `en cond`, `uk за-умовою`, `sa anukrama`, `sym ?:` | — (no asm primitive; CML compiles `cond` directly to comparison+jump, same as `quote`) | witnessed, bounded shape only | `cml`'s real front-end (`parser::parse` → `lower::lower_program` → `x86_freestanding`), commit `01ee4ae`, reusing `Ir::Cond`/`Ir::Quote` support `wsm-os-lisp` had already proven for its own M5A milestone | `harness-cond` (2026-09-12) — real compile, linked against this repo's `asm/nucleus.s`, executed, returns `right`. **Scope note**: proves the standalone fixture only, not the real `my-eval-cond` FUNCTION inside `meta-eval.lisp` (needs general first-class application, still missing, tracked separately) |
-| lambda (application) | 0010 | `en lambda`, `uk функція` | `wsm_closure_new`, `wsm_closure_definition`, `wsm_closure_environment` | native (identity/ABI only, not general application); accessor Type-error paths witnessed 2026-09-12 | hand-written, this repo, Stage 2 (`docs/ROADMAP.md`) | `harness-lambda` (pure identity fixture) + `harness-closure` (identity ABI, happy path) + `harness-closure-type-trigger`/`type_error_path.rs` (Type-error abort on a non-Closure word) |
+| cons | 00000100 | `en cons`, `uk сполучити`, `sa saṃyuj`, `sym :` | `wsm_cons` | native | hand-written, this repo, Stage 0 | `harness-cons` |
+| car | 00000101 | `en car`, `uk перше`, `sa ādi`, `sym :п` | `wsm_car` | native | hand-written, this repo, Stage 0 (happy path) / Stage 2 (Type-error fail-closed, 2026-09-12) | `harness-cons` (calls `wsm_car` on its result) + `harness-car-type-trigger`/`type_error_path.rs` (Type-error abort, subprocess-checked) |
+| cdr | 00000110 | `en cdr`, `uk решта`, `sa śeṣa`, `sym :р` | `wsm_cdr` | native | hand-written, this repo, Stage 0 (happy path) / Stage 2 (Type-error fail-closed, 2026-09-12) | `harness-cons` (calls `wsm_cdr` on its result); the abort path is proven via `wsm_car`'s identical trigger since both primitives share the same tag check and `wsm_fail` jump |
+| eq | 00000011 | `en eq`, `uk тотожне?`, `sa abheda`, `sym =?` | `wsm_eq` | native | hand-written, this repo, Stage 0 (Fixnum witness) / Stage 2 (Symbol witness, 2026-09-12) | `harness-eq` (Fixnum) + `harness-eq-symbol` (Symbol, closes the gap noted below) |
+| atom | 00000010 | `en atom`, `uk атом?`, `sa aṇu`, `sym .?` | `wsm_atom` | native | hand-written, this repo, Stage 0 (positive case) / Stage 2 (negative case, 2026-09-12) | `harness-atom` (`()` is an atom) + `harness-atom-cons` (an allocated `Cons` is not) |
+| quote | 00000001 | `en quote`, `uk як-є`, `sa svarūpa`, `sym '` | — (no asm primitive; CML compiles a literal directly) | not-in-scope for a nucleus primitive, but the standalone fixture is witnessed | dispatch lived in `dll/eval.rs`, deleted at Phase D (`1e1549a`); moved to `my-lisp-cyberpunk/host-runtime/build.rs` + `cml`'s compiler for host-primitive dispatch. Separately, `cml x86-asm` already compiles a bare `(quote radio)` file directly (real CLI, not hand-built IR) | `harness-quote` (2026-09-12) — real `cml` CLI compile, linked against this repo's own `asm/nucleus.s`, executed, returns `radio`, matching the `conformance.lisp` oracle (wsm-my-lisp#4 row 1) |
+| cond | 00000111 | `en cond`, `uk за-умовою`, `sa anukrama`, `sym ?:` | — (no asm primitive; CML compiles `cond` directly to comparison+jump, same as `quote`) | witnessed, bounded shape only | `cml`'s real front-end (`parser::parse` → `lower::lower_program` → `x86_freestanding`), commit `01ee4ae`, reusing `Ir::Cond`/`Ir::Quote` support `wsm-os-lisp` had already proven for its own M5A milestone | `harness-cond` (2026-09-12) — real compile, linked against this repo's `asm/nucleus.s`, executed, returns `right`. **Scope note**: proves the standalone fixture only, not the real `my-eval-cond` FUNCTION inside `meta-eval.lisp` (needs general first-class application, still missing, tracked separately) |
+| lambda (application) | 00001000 | `en lambda`, `uk функція` | `wsm_closure_new`, `wsm_closure_definition`, `wsm_closure_environment` | native (identity/ABI only, not general application); accessor Type-error paths witnessed 2026-09-12 | hand-written, this repo, Stage 2 (`docs/ROADMAP.md`) | `harness-lambda` (pure identity fixture) + `harness-closure` (identity ABI, happy path) + `harness-closure-type-trigger`/`type_error_path.rs` (Type-error abort on a non-Closure word) |
 
 ## Honest gaps, named per this issue's own discipline ("невідомий ID fail-closed")
 

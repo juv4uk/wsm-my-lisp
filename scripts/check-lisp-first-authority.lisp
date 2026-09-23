@@ -80,5 +80,14 @@
      (t (princ "AUTHORITY OK: self-hosting workflow carries no dll/ path trigger\n"))))
   (t ()))
 
+; --- 7. SID8-ONLY: function identity is a bare 8-bit binary token, never a
+; decimal/hex/short alias (wsm-my-lisp#49, ecosystem#16, 2026-09-23). Shared
+; check with the bash guard -- see check-canon-function-table-sid8.sh for
+; what this actually checks and why.
+(let ((bad (process-out "scripts/check-canon-function-table-sid8.sh 2>/dev/null")))
+  (cond
+    ((not (string-empty? bad)) (armed-violation bad))
+    (t (princ "AUTHORITY OK: docs/canon-function-table.md: every semantic id is a bare 8-bit binary token\n"))))
+
 (princ "Lisp-first authority guard passed (C/Rust substrates allowed with provenance).\n")
 ()

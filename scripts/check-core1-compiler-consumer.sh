@@ -6,10 +6,11 @@ set -euo pipefail
 root_dir=$(git rev-parse --show-toplevel)
 my_lisp_repo=${MY_LISP_REPO:-/home/agents/GitHub/my-lisp}
 mccarthy_repo=${MCCARTHY_EVAL_REPO:-/home/agents/GitHub/mccarthy-eval}
-core1_rev=${CORE1_REV:-d359c4885e0609a6c8350daf45de157b40cf48f3}
+core1_rev=${CORE1_REV:-20eb4f65e7deb53084c1e7d11461b2d15cf2b7d6}
 seed_rev=770ae6ce5d8c13d5a970f2b496fc74d944f480a5
 compiler_rev=5b796e41784bb63b43a20349e42cc8586e157a80
 core1_blob=c134b01bb37e45e0b9f29c098d7791538565b8e7
+sid8_transport_blob=d1bb8cd05c9d8686b5adc0bac9277dc22d122c83
 compiler_blob=16d02558b974f86fe28f79940e4fcd7bcac056f7
 scratch_dir=$(mktemp -d)
 trap 'rm -rf "$scratch_dir"' EXIT
@@ -23,8 +24,10 @@ require_rev "$mccarthy_repo" "$seed_rev"
 require_rev "$root_dir" "$compiler_rev"
 
 git -C "$my_lisp_repo" show "$core1_rev:lib/core1.lisp" > "$scratch_dir/core1.lisp"
+git -C "$my_lisp_repo" show "$core1_rev:lib/core1-sid8-transport.lisp" > "$scratch_dir/core1-sid8-transport.lisp"
 git -C "$root_dir" show "$compiler_rev:lib/compiler.lisp" > "$scratch_dir/compiler.lisp"
 test "$(git hash-object "$scratch_dir/core1.lisp")" = "$core1_blob"
+test "$(git hash-object "$scratch_dir/core1-sid8-transport.lisp")" = "$sid8_transport_blob"
 test "$(git hash-object "$scratch_dir/compiler.lisp")" = "$compiler_blob"
 
 git -C "$mccarthy_repo" archive "$seed_rev" | tar -x -C "$scratch_dir"
@@ -35,6 +38,7 @@ write_probe() {
   local expression=$2
   {
     cat "$scratch_dir/core1.lisp"
+    cat "$scratch_dir/core1-sid8-transport.lisp"
     printf '%s\n' '(C1-EVAL-PROGRAM-THEN'
     printf '%s\n' '  (QUOTE ('
     sed '/^[[:space:]]*;/d' "$scratch_dir/compiler.lisp"

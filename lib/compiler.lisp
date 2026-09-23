@@ -36,22 +36,10 @@
       ((atom form) (quote ()))
       (t (eq (car form) name)))))
 
-(def compiler-primitive-sid
-  (lambda (name)
-    (cond
-      ((eq name (quote atom)) 00000010)
-      ((eq name (quote eq)) 00000011)
-      ((eq name (quote cons)) 00000100)
-      ((eq name (quote car)) 00000101)
-      ((eq name (quote cdr)) 00000110)
-      ((eq name (quote +)) 00001100)
-      ((eq name (quote -)) 00001101)
-      (t (quote ())))))
-
 (def compiler-primitive?
   (lambda (name)
     (cond
-      ((compiler-primitive-sid name) t)
+      ((C1-COMPILER-SID-FOR-SURFACE name) t)
       (t (quote ())))))
 
 (def compiler-nil?
@@ -111,7 +99,7 @@
        (list (quote var) form))
       ((compiler-primitive? (car form))
        (list (quote prim)
-             (compiler-primitive-sid (car form))
+             (C1-COMPILER-SID-FOR-SURFACE (car form))
              (compiler-map compiler-form (cdr form))))
       (t
        (list (quote app)

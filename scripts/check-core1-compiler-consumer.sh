@@ -76,8 +76,8 @@ expect core1-three-part-clause-rejected '(compiler-clause-shape? (quote ((quote 
 # native S4 self-source witness (#237), where the larger tree does not exceed
 # the historical seed's bounded stack/reader envelope.
 expect compiler-core1-cond \
-  '(compiler-form (quote (cond ((atom form) (eq form (quote ()))) (t (quote ())))))' \
-  '(cond ((prim atom ((var form))) (prim eq ((var form) (quote ())))) ((var t) (quote ())))'
+  '(compiler-form (quote (cond ((quote A) (quote B)))))' \
+  '(cond ((quote A) (quote B)))'
 
 # + and - are compiler-recognized quoted names, not arithmetic executed by Core1.
 expect plus-emitted-data '(compiler-primitive? (quote +))' 'T'

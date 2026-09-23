@@ -4,7 +4,7 @@
 ;   (quote datum)       -> (quote datum)
 ;   (callee arg ...)    -> (app callee-ir (args-ir ...))
 ;   (lambda (x) body)   -> (lambda (x) body-ir)
-;   (cond ...)           -> (cond-match ...)
+;   (cond ...)           -> (cond ...)
 ;
 ; The result is data, not an evaluator result and not semantic authority. CML
 ; remains the bootstrap backend; my-lisp remains the reference oracle.
@@ -53,8 +53,7 @@
     (cond
       ((compiler-clause-shape? clause)
        (list (compiler-form (car clause))
-             (car (cdr clause))
-             (compiler-form (car (cdr (cdr clause))))))
+             (compiler-form (car (cdr clause)))))
       (t (list (quote compile-error)
                (quote malformed-cond-clause)
                clause)))))
@@ -64,8 +63,7 @@
     (cond
       ((atom clause) (quote ()))
       ((atom (cdr clause)) (quote ()))
-      ((atom (cdr (cdr clause))) (quote ()))
-      ((not (atom (cdr (cdr (cdr clause))))) (quote ()))
+      ((not (atom (cdr (cdr clause)))) (quote ()))
       (t t))))
 
 (def compiler-clauses
@@ -95,7 +93,7 @@
              (car (cdr form))
              (compiler-form (car (cdr (cdr form))))))
       ((compiler-head? form (quote cond))
-       (list (quote cond-match)
+       (list (quote cond)
              (compiler-clauses (cdr form))))
       ((atom form)
        (list (quote var) form))

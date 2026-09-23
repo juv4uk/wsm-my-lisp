@@ -7,10 +7,10 @@ root_dir=$(git rev-parse --show-toplevel)
 my_lisp_repo=${MY_LISP_REPO:-/home/agents/GitHub/my-lisp}
 mccarthy_repo=${MCCARTHY_EVAL_REPO:-/home/agents/GitHub/mccarthy-eval}
 core1_rev=${CORE1_REV:-d359c4885e0609a6c8350daf45de157b40cf48f3}
-seed_rev=1ae9745b66a1439c1929b0d9038c680567118a58
-compiler_rev=4d59936c02e72370448c2b4bd257603865f58648
+seed_rev=770ae6ce5d8c13d5a970f2b496fc74d944f480a5
+compiler_rev=5b796e41784bb63b43a20349e42cc8586e157a80
 core1_blob=c134b01bb37e45e0b9f29c098d7791538565b8e7
-compiler_blob=8015a4b96040e2c9bf6dd889a91527f5d6b2f9bc
+compiler_blob=16d02558b974f86fe28f79940e4fcd7bcac056f7
 scratch_dir=$(mktemp -d)
 trap 'rm -rf "$scratch_dir"' EXIT
 
@@ -67,7 +67,9 @@ second=$(run_probe compiler-program-quote)
 test "$first" = "$second"
 
 # Real compiler runtime dependencies and their classifications.
-expect compiler-form-cons '(compiler-form (quote (cons (quote A) (quote B))))' '(prim cons ((quote A) (quote B)))'
+expect compiler-primitive-sid-cons '(compiler-primitive-sid (quote cons))' '00000100'
+expect compiler-primitive-sid-car '(compiler-primitive-sid (quote car))' '00000101'
+expect compiler-form-cons '(compiler-form (quote (cons (quote A) (quote B))))' '(prim 00000100 ((quote A) (quote B)))'
 expect core1-clause-derived '(compiler-clause (quote ((quote A) (quote yes))))' '((quote A) (quote yes))'
 expect core1-two-part-clause-shape '(compiler-clause-shape? (quote ((quote A) (quote yes))))' 'T'
 expect core1-three-part-clause-rejected '(compiler-clause-shape? (quote ((quote A) (quote yes) (quote no))))' 'NIL'
@@ -81,7 +83,9 @@ expect compiler-core1-cond \
 
 # + and - are compiler-recognized quoted names, not arithmetic executed by Core1.
 expect plus-emitted-data '(compiler-primitive? (quote +))' 'T'
+expect plus-emitted-sid '(compiler-primitive-sid (quote +))' '00001100'
 expect minus-emitted-data '(compiler-primitive? (quote -))' 'T'
+expect minus-emitted-sid '(compiler-primitive-sid (quote -))' '00001101'
 
-printf 'CORE1-CONSUMER-AUDIT-PASS core1=%s compiler=%s seed=%s\n' \
+printf 'CORE1-CONSUMER-AUDIT-PASS sid8=bare core1=%s compiler=%s seed=%s\n' \
   "$core1_rev" "$compiler_rev" "$seed_rev"

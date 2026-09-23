@@ -6,11 +6,11 @@ set -euo pipefail
 root_dir=$(git rev-parse --show-toplevel)
 my_lisp_repo=${MY_LISP_REPO:-/home/agents/GitHub/my-lisp}
 mccarthy_repo=${MCCARTHY_EVAL_REPO:-/home/agents/GitHub/mccarthy-eval}
-core1_rev=${CORE1_REV:-20eb4f65e7deb53084c1e7d11461b2d15cf2b7d6}
+core1_rev=${CORE1_REV:-d25089b77e3066a2faa7ac7e71d1f30e5a4720d5}
 seed_rev=770ae6ce5d8c13d5a970f2b496fc74d944f480a5
 compiler_rev=5b796e41784bb63b43a20349e42cc8586e157a80
 core1_blob=c134b01bb37e45e0b9f29c098d7791538565b8e7
-sid8_transport_blob=d1bb8cd05c9d8686b5adc0bac9277dc22d122c83
+sid8_transport_blob=4f0ec4dc3bb8f5ca84105632a404e0598f3f6060
 compiler_blob=16d02558b974f86fe28f79940e4fcd7bcac056f7
 scratch_dir=$(mktemp -d)
 trap 'rm -rf "$scratch_dir"' EXIT
@@ -39,7 +39,7 @@ write_probe() {
   {
     cat "$scratch_dir/core1.lisp"
     cat "$scratch_dir/core1-sid8-transport.lisp"
-    printf '%s\n' '(C1-EVAL-PROGRAM-THEN'
+    printf '%s\n' '(C1-EVAL-PROGRAM-THEN-SID8'
     printf '%s\n' '  (QUOTE ('
     sed '/^[[:space:]]*;/d' "$scratch_dir/compiler.lisp"
     printf '%s\n' '  ))'

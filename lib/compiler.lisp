@@ -93,7 +93,7 @@
              (car (cdr form))
              (compiler-form (car (cdr (cdr form))))))
       ((compiler-head? form (quote cond))
-       (list (quote cond)
+       (cons (quote cond)
              (compiler-clauses (cdr form))))
       ((atom form)
        (list (quote var) form))

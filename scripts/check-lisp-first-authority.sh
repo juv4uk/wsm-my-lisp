@@ -52,4 +52,13 @@ if [[ -f .github/workflows/self-hosting-authority.yml ]]; then
   ok "self-hosting workflow carries no dll/ path trigger"
 fi
 
+
+# --- 7. SID8-ONLY: function identity is a bare 8-bit binary token, never a
+# decimal/hex/short alias (wsm-my-lisp#49, ecosystem#16, 2026-09-23). See
+# check-canon-function-table-sid8.sh for what this actually checks and why.
+bad_ids=$(scripts/check-canon-function-table-sid8.sh) || \
+  fail "docs/canon-function-table.md has a non-SID8 id column:
+$bad_ids"
+ok "docs/canon-function-table.md: every semantic id is a bare 8-bit binary token"
+
 echo "Lisp-first authority guard passed (C/Rust substrates allowed with provenance)."

@@ -6,10 +6,10 @@ set -euo pipefail
 root_dir=$(git rev-parse --show-toplevel)
 my_lisp_repo=${MY_LISP_REPO:-/home/agents/GitHub/my-lisp}
 mccarthy_repo=${MCCARTHY_EVAL_REPO:-/home/agents/GitHub/mccarthy-eval}
-core1_rev=${CORE1_REV:-01b67f398bb5bff1aa0ab0e25f7e09a73e51b86b}
-seed_rev=1c6acdb9dac890b2a0535ec0453bd83dfdda7248
+core1_rev=${CORE1_REV:-d359c4885e0609a6c8350daf45de157b40cf48f3}
+seed_rev=1ae9745b66a1439c1929b0d9038c680567118a58
 compiler_rev=c98a9759e03d307583ae8d5b9a555e90375001c0
-core1_sha=e56cbbeb4f3aaededf14a8af6ce164ccc219cd3b535fcaf575329f0f5c8c3b34
+core1_blob=c134b01bb37e45e0b9f29c098d7791538565b8e7
 compiler_blob=de9ffba973756c981f4c6f1f75d736bd31c734c7
 scratch_dir=$(mktemp -d)
 trap 'rm -rf "$scratch_dir"' EXIT
@@ -24,7 +24,7 @@ require_rev "$root_dir" "$compiler_rev"
 
 git -C "$my_lisp_repo" show "$core1_rev:lib/core1.lisp" > "$scratch_dir/core1.lisp"
 git -C "$root_dir" show "$compiler_rev:lib/compiler.lisp" > "$scratch_dir/compiler.lisp"
-test "$(sha256sum "$scratch_dir/core1.lisp" | cut -d' ' -f1)" = "$core1_sha"
+test "$(git hash-object "$scratch_dir/core1.lisp")" = "$core1_blob"
 test "$(git hash-object "$scratch_dir/compiler.lisp")" = "$compiler_blob"
 
 git -C "$mccarthy_repo" archive "$seed_rev" | tar -x -C "$scratch_dir"

@@ -71,9 +71,13 @@ expect compiler-form-cons '(compiler-form (quote (cons (quote A) (quote B))))' '
 expect core1-clause-derived '(compiler-clause (quote ((quote A) (quote yes))))' '((quote A) (quote yes))'
 expect core1-two-part-clause-shape '(compiler-clause-shape? (quote ((quote A) (quote yes))))' 'T'
 expect core1-three-part-clause-rejected '(compiler-clause-shape? (quote ((quote A) (quote yes) (quote no))))' 'NIL'
-expect compiler-self-source-cond \
-  '(compiler-form (quote (def compiler-nil? (lambda (form) (cond ((atom form) (eq form (quote ()))) (t (quote ())))))))' \
-  '(def compiler-nil? (lambda (form) (cond ((prim atom ((var form))) (prim eq ((var form) (quote ())))) ((var t) (quote ())))))'
+# Keep the historical S0 witness bounded: it proves the Core1 COND compiler
+# law directly. The full real compiler-nil? definition is exercised by CML's
+# native S4 self-source witness (#237), where the larger tree does not exceed
+# the historical seed's bounded stack/reader envelope.
+expect compiler-core1-cond \
+  '(compiler-form (quote (cond ((atom form) (eq form (quote ()))) (t (quote ())))))' \
+  '(cond ((prim atom ((var form))) (prim eq ((var form) (quote ())))) ((var t) (quote ())))'
 
 # + and - are compiler-recognized quoted names, not arithmetic executed by Core1.
 expect plus-emitted-data '(compiler-primitive? (quote +))' 'T'

@@ -34,7 +34,7 @@ and the archived migration record:
 Self-hosting core path remains:
 
 ```text
-external/my-lisp/lib/meta-eval.lisp
+external/sens/lib/meta-eval.lisp
         → CML admitted lowering
         → generated x86-64 ASM
         → asm/nucleus.s
@@ -47,11 +47,11 @@ These are two different things, not duplication. `my-lisp/c-runtime` is an
 independent C+asm substrate for checking the language contract. This repo is
 the **self-hosting destination**. Neither absorbs the other.
 
-See `repo.my` for the full scope declaration.
+See `repo.lisp` for the full scope declaration.
 
 ## Status, 2026-09-02 (+ authority note 2026-09-11)
 
-`external/my-lisp` is a git submodule. `lib/meta-eval.my` is the starting
+`external/sens` is a git submodule. `lib/meta-eval.lisp` is the starting
 point for "my Lisp in my Lisp" — not yet fully running on the asm core.
 
 `asm/nucleus.s` — hand-written x86_64 implementation of the 5 core

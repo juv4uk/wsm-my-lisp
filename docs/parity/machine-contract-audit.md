@@ -13,10 +13,10 @@ Audit type: fail-closed; unknown/missing = RED
 
 | Contract file | Upstream path (pinned) | Role |
 |---|---|---|
-| `machine-lowering-boundary.lisp` | `external/my-lisp/machine-lowering-boundary.lisp` | Authority direction: my-lisp owns semantic IDs and observation; lowering is one-way semantic-to-machine; semantic IDs from ISA/opcode/asm forbidden; machine text/bytes are projection-only |
-| `memory-layout-contract.lisp` | `external/my-lisp/memory-layout-contract.lisp` | Shared memory layout: nan-boxing-64 value representation, 4-bit tag in bits 31-28, heap representations for string/rational/closure |
-| `semantic-x86-64.lisp` | `external/my-lisp/lib/machine/lowering/semantic-x86-64.lisp` | Semantic-to-x86-64 lowering profile: maps Lisp-owned semantic IDs (0002-1075) to admitted x86 operations |
-| `x86-64.lisp` | `external/my-lisp/lib/machine/encoding/x86-64.lisp` | x86-64 instruction encoder: Lisp-authored, own encoding authority |
+| `machine-lowering-boundary.lisp` | `external/sens/machine-lowering-boundary.lisp` | Authority direction: my-lisp owns semantic IDs and observation; lowering is one-way semantic-to-machine; semantic IDs from ISA/opcode/asm forbidden; machine text/bytes are projection-only |
+| `memory-layout-contract.lisp` | `external/sens/memory-layout-contract.lisp` | Shared memory layout: nan-boxing-64 value representation, 4-bit tag in bits 31-28, heap representations for string/rational/closure |
+| `semantic-x86-64.lisp` | `external/sens/lib/machine/lowering/semantic-x86-64.lisp` | Semantic-to-x86-64 lowering profile: maps Lisp-owned semantic IDs (0002-1075) to admitted x86 operations |
+| `x86-64.lisp` | `external/sens/lib/machine/encoding/x86-64.lisp` | x86-64 instruction encoder: Lisp-authored, own encoding authority |
 
 ## Local Machine Fact Audit
 
@@ -34,7 +34,7 @@ Audit type: fail-closed; unknown/missing = RED
 
 | Local fact | Value | Upstream source | Status | Notes |
 |---|---|---|---|---|
-| `.equ TAG_CONS` | 0 | wsm-target-contract (target-contract.wsm) | **bootstrap mirror** | WSM freestanding target ABI; NOT a projection of memory-layout-contract nan-boxing (cons=1 there). Mechanism, not semantic identity. |
+| `.equ TAG_CONS` | 0 | wsm-target-contract (target-contract.lisp) | **bootstrap mirror** | WSM freestanding target ABI; NOT a projection of memory-layout-contract nan-boxing (cons=1 there). Mechanism, not semantic identity. |
 | `.equ TAG_NIL` | 1 | wsm-target-contract | **bootstrap mirror** | Same: different from memory-layout-contract nil=3 |
 | `.equ TAG_SYMBOL` | 4 | wsm-target-contract | **bootstrap mirror** | Different from memory-layout-contract symbol=2 |
 | `.equ TAG_CLOSURE` | 5 | wsm-target-contract | **bootstrap mirror** | Different from memory-layout-contract closure=8 |
@@ -48,7 +48,7 @@ Audit type: fail-closed; unknown/missing = RED
 
 | Check | Fast CI | Deep CI |
 |---|---|---|
-| Pin `external/my-lisp` matches `a5ade0b` | ✅ | ✅ |
+| Pin `external/sens` matches `a5ade0b` | ✅ | ✅ |
 | `machine-lowering-boundary.lisp` present + schema /2 | ✅ | ✅ |
 | `memory-layout-contract.lisp` present + version (1 0) | ✅ | ✅ |
 | `lib/machine/lowering/semantic-x86-64.lisp` present | ✅ | ✅ |

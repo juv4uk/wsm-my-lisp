@@ -3,7 +3,7 @@
 **2026-09-11 · owner-commissioned, relayed via `my-lisp-cyberpunk`**
 
 This is a plan document, not code. It proposes how every consumer of
-`semantic-registry.wsm` (this repo, `cml`, `my-lisp-cyberpunk`, and any
+`semantic-registry.lisp` (this repo, `cml`, `my-lisp-cyberpunk`, and any
 future consumer) should recognize Canon symbols going forward, and
 names the concrete follow-up work each repo would need to do to get
 there. Nothing here is committed to code by this document alone —
@@ -11,7 +11,7 @@ implementation is tracked as separate issues per repo, referenced below.
 
 ## The problem, stated once so it isn't rediscovered per-repo
 
-`semantic-registry.wsm` is the single authority mapping a numeric
+`semantic-registry.lisp` is the single authority mapping a numeric
 semantic ID (e.g. `0001`) to its equally-valid surface spellings across
 languages (`en`/`uk`/`sa`/`sym`) and, separately, a *display* casing
 convention some consumers layer on top (e.g. uppercasing for a
@@ -31,7 +31,7 @@ registry:
    same copy-paste-drift problem, since the list silently goes stale
    the moment the registry changes. Real fix: `dll/build.rs` (now
    migrated to `my-lisp-cyberpunk/host-runtime/build.rs`) parses
-   `semantic-registry.wsm` at build time and generates a
+   `semantic-registry.lisp` at build time and generates a
    `canon_spellings.rs` const-slice file, consumed via `include!`.
    Deliberately scoped to only the two Canon ids the evaluator
    special-cases (`0001` quote, `0007` cond) — not a general registry
@@ -70,7 +70,7 @@ conflating them is exactly how bug (3) happened:
   consumer actually special-cases need a generated table) and is
   **never** derived by a local text transform (uppercasing, stripping
   accents, case-folding) — it is always a direct lookup against
-  `semantic-registry.wsm`'s own listed spellings for that ID.
+  `semantic-registry.lisp`'s own listed spellings for that ID.
 - **Ordinary symbol identity** (what bug (3) violated): for any string
   that is *not* itself one of a Canon ID's registry-declared spellings,
   identity is exact string equality. `radio` and `RADIO` are two
@@ -83,7 +83,7 @@ conflating them is exactly how bug (3) happened:
 The generalization the owner is asking for is **not** "make every
 symbol dispatch through the registry" (most symbols, like a Cyberpunk
 mod's `radio` device name, aren't Canon at all and never touch
-`semantic-registry.wsm`) — it is: **wherever a consumer's code today
+`semantic-registry.lisp`) — it is: **wherever a consumer's code today
 encodes a hardcoded belief about which spellings are equivalent to
 which, or which strings should compare equal after some transform,
 that belief must instead come from a generated projection of the
@@ -107,7 +107,7 @@ all.
 Any new repo or module that needs to recognize a Canon special form by
 any of its surface spellings should:
 
-1. Treat `semantic-registry.wsm` as the only source for "which
+1. Treat `semantic-registry.lisp` as the only source for "which
    spellings are equivalent" — never hand-list spellings in a
    `matches!`/`switch`/`if`-chain, even if the list looks small and
    stable today (it looked small and stable in `wsm-my-lisp/dll/eval.rs`
@@ -132,7 +132,7 @@ any of its surface spellings should:
 - Rewriting `cml`'s or `host-runtime`'s existing generated tables — both
   already follow the correct pattern; this document doesn't ask either
   to change anything except cml's new case-folding bug.
-- Extending `semantic-registry.wsm`'s own schema — the registry format
+- Extending `semantic-registry.lisp`'s own schema — the registry format
   is unchanged; this is a plan for *consuming* it correctly, not for
   authoring it differently.
 - A shared crate/library that all consumers import instead of each

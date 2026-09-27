@@ -8,7 +8,7 @@ historical context only, never a source of requirements.
 ## Authority order
 
 1. **Language semantics** — owned entirely by `my-lisp`'s Canon /
-   `external/my-lisp/lib/surface/semantic-registry.wsm`. This repo is
+   `external/sens/lib/surface/semantic-registry.lisp`. This repo is
    never semantic authority (see [`AUTHORITY.md`](AUTHORITY.md)).
 2. **[`AUTHORITY.md`](AUTHORITY.md)** — the current layer-ownership
    table for the whole ecosystem as it touches this repo (who owns

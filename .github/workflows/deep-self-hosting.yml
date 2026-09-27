@@ -30,23 +30,23 @@ jobs:
         shell: bash
         run: |
           expected=a5ade0b2187229c724fb8703cd78cd2d1f75a8f1
-          actual="$(git -C external/my-lisp rev-parse HEAD)"
+          actual="$(git -C external/sens rev-parse HEAD)"
           test "$actual" = "$expected"
-          test -f external/my-lisp/lib/meta-eval.lisp
-          grep -q '^(def my-eval-cond-result$' external/my-lisp/lib/meta-eval.lisp
-          grep -q '^(def my-eval-result$' external/my-lisp/lib/meta-eval.lisp
+          test -f external/sens/lib/meta-eval.lisp
+          grep -q '^(def my-eval-cond-result$' external/sens/lib/meta-eval.lisp
+          grep -q '^(def my-eval-result$' external/sens/lib/meta-eval.lisp
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build my-lisp CLI (pinned authority a5ade0b MACHINE-CONTRACT-1)
         run: |
-          cargo build --release --locked --manifest-path external/my-lisp/Cargo.toml -p my-lisp-cli
+          cargo build --release --locked --manifest-path external/sens/Cargo.toml -p my-lisp-cli
 
       - name: Machine contract gate (P0 #23, nightly drift watchdog)
         shell: bash
         run: |
-          external/my-lisp/target/release/my-lisp scripts/check-machine-contracts.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
+          external/sens/target/release/my-lisp scripts/check-machine-contracts.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
 
       - name: Run complete harness test surface
         run: cargo test --manifest-path harness/Cargo.toml --locked --all-targets --verbose

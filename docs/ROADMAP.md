@@ -33,7 +33,7 @@
 - `WSM-SELFHOST-META-EVAL-PARITY-C0` (my-lisp) — `my-eval` (WSM-на-WSM evaluator) доведений на C0 (McCarthy-7) рівні, oracle-tier, 21 незалежний fixture, parity 21/21.
 - Один C0-fixture (`(atom (quote ()))`) реально скомпільований через CML x86_64-freestanding backend і ВИКОНАНИЙ на реальному x86_64 (не лише зібраний).
 - Ручне x86_64 asm-ядро (`asm/nucleus.s` у цьому репо): 5 примітивів (`wsm_cons`/`wsm_car`/`wsm_cdr`/`wsm_eq`/`wsm_atom`), кожен реально виконаний і звірений з oracle — atom/cons/eq/lambda(bounded)/escaping-closure(bounded curried).
-- `external/my-lisp` підключено як git submodule (не copy-paste) — `lib/meta-eval.lisp` там, точка старту "мій лісп на моєму ліспі".
+- `external/sens` підключено як git submodule (не copy-paste) — `lib/meta-eval.lisp` там, точка старту "мій лісп на моєму ліспі".
 
 ### Стадія 1 (ЗРОБЛЕНО, 2026-09-05): іменована bounded tail-recursion на asm-ядрі
 
@@ -86,7 +86,7 @@ Not decorative framing. Every stage below is checked against these rules, and no
 
 ## Part II — Technical plan
 
-Stage 0 (DONE): first nucleus witness — C0/McCarthy-7 oracle parity, one CML→x86_64 fixture actually executed (not just assembled), hand-written asm nucleus for 5 primitives all executed and oracle-checked, `external/my-lisp` submodule in place.
+Stage 0 (DONE): first nucleus witness — C0/McCarthy-7 oracle parity, one CML→x86_64 fixture actually executed (not just assembled), hand-written asm nucleus for 5 primitives all executed and oracle-checked, `external/sens` submodule in place.
 
 Stage 1 (DONE, 2026-09-05): named bounded tail recursion on the asm core — `(def countdown (lambda (n) ...))` passed CML x86 lowering, linked against `asm/nucleus.s` with no Rust runtime primitives, and executed `(countdown 100000)` as `done`, matching the oracle. The assembly has `.Ltcloop_0` plus `jmp .Ltcloop_0`, with no recursive `call`, so its native frame is constant. Historical witness: CML `ae88fd2`, `asm/entry-countdown-100k.s`, wsm-my-lisp `185b803`. This does not claim that the full `meta-eval.lisp` call graph is compiled; `Ir::Let`, general application/lambda and variadic forms remain separate Stage 2 gates.
 

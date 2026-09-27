@@ -13,10 +13,10 @@ Verification gate: `scripts/check-machine-contracts.lisp` (Lisp-first, у CI ч�
 
 | Контракт | Шлях у піні | Роль |
 |---|---|---|
-| `machine-lowering-boundary.lisp` | `external/my-lisp/machine-lowering-boundary.lisp` | Напрям authority: semantic IDs і спостереження належать my-lisp; lowering односпрямований semantic→machine; semantic IDs з ISA/opcode/asm заборонені; machine text/bytes — лише projection |
-| `memory-layout-contract.lisp` | `external/my-lisp/memory-layout-contract.lisp` | Спільний layout пам'яті: nan-boxing-64 представлення значень, 4-bit тег у бітах 31-28, heap-представлення string/rational/closure |
-| `semantic-x86-64.lisp` | `external/my-lisp/lib/machine/lowering/semantic-x86-64.lisp` | Lowering профіль semantic→x86-64: зіставляє Lisp-owned semantic IDs (0002-1075) з допущеними x86-операціями |
-| `x86-64.lisp` | `external/my-lisp/lib/machine/encoding/x86-64.lisp` | x86-64 енкодер: Lisp-авторський, власна authority кодування |
+| `machine-lowering-boundary.lisp` | `external/sens/machine-lowering-boundary.lisp` | Напрям authority: semantic IDs і спостереження належать my-lisp; lowering односпрямований semantic→machine; semantic IDs з ISA/opcode/asm заборонені; machine text/bytes — лише projection |
+| `memory-layout-contract.lisp` | `external/sens/memory-layout-contract.lisp` | Спільний layout пам'яті: nan-boxing-64 представлення значень, 4-bit тег у бітах 31-28, heap-представлення string/rational/closure |
+| `semantic-x86-64.lisp` | `external/sens/lib/machine/lowering/semantic-x86-64.lisp` | Lowering профіль semantic→x86-64: зіставляє Lisp-owned semantic IDs (0002-1075) з допущеними x86-операціями |
+| `x86-64.lisp` | `external/sens/lib/machine/encoding/x86-64.lisp` | x86-64 енкодер: Lisp-авторський, власна authority кодування |
 
 ## Аудит локальних машинних фактів
 
@@ -34,7 +34,7 @@ Verification gate: `scripts/check-machine-contracts.lisp` (Lisp-first, у CI ч�
 
 | Локальний факт | Значення | Джерело | Статус | Нотатки |
 |---|---|---|---|---|
-| `.equ TAG_CONS` | 0 | wsm-target-contract (target-contract.wsm) | **bootstrap mirror** | Freestanding ABI; НЕ projection nan-boxing memory-layout-contract (там cons=1). Механізм, не семантична identity. |
+| `.equ TAG_CONS` | 0 | wsm-target-contract (target-contract.lisp) | **bootstrap mirror** | Freestanding ABI; НЕ projection nan-boxing memory-layout-contract (там cons=1). Механізм, не семантична identity. |
 | `.equ TAG_NIL` | 1 | wsm-target-contract | **bootstrap mirror** | Те саме: відрізняється від memory-layout-contract nil=3 |
 | `.equ TAG_SYMBOL` | 4 | wsm-target-contract | **bootstrap mirror** | Відрізняється від memory-layout-contract symbol=2 |
 | `.equ TAG_CLOSURE` | 5 | wsm-target-contract | **bootstrap mirror** | Відрізняється від memory-layout-contract closure=8 |
@@ -48,7 +48,7 @@ Verification gate: `scripts/check-machine-contracts.lisp` (Lisp-first, у CI ч�
 
 | Перевірка | Fast CI | Deep CI |
 |---|---|---|
-| Пін `external/my-lisp` = `a5ade0b` | ✅ | ✅ |
+| Пін `external/sens` = `a5ade0b` | ✅ | ✅ |
 | `machine-lowering-boundary.lisp` присутній + schema /2 | ✅ | ✅ |
 | `memory-layout-contract.lisp` присутній + version (1 0) | ✅ | ✅ |
 | `lib/machine/lowering/semantic-x86-64.lisp` присутній | ✅ | ✅ |

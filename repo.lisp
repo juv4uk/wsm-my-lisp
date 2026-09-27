@@ -1,5 +1,5 @@
-; repo.my — Swarm Contract v0.1 scope declaration for wsm-my-lisp.
-; Format confirmed by example against my-idea/repo.my and my-lisp's own
+; repo.lisp — Swarm Contract v0.1 scope declaration for wsm-my-lisp.
+; Format confirmed by example against my-idea/repo.lisp and my-lisp's own
 ; sibling declarations.
 ;
 ; A declaration of scope, not an authorization grant -- authorities/

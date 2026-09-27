@@ -1,6 +1,6 @@
 ; Cyberpunk embed task recommendations for wsm-my-lisp (2026-09-10).
-; Parallel to tasks.my stages 0–7. Claim only from this repo.
-; Cross-repo map: cml evidence/cyberpunk/CROSS-REPO-TASK-RECOMMENDATIONS-2026-09-10.my
+; Parallel to tasks.lisp stages 0–7. Claim only from this repo.
+; Cross-repo map: cml evidence/cyberpunk/CROSS-REPO-TASK-RECOMMENDATIONS-2026-09-10.lisp
 
 ((kind . cyberpunk-recommendations)
  (version . 1)

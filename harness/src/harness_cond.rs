@@ -1,6 +1,6 @@
 //! Parity witness for `(cond (() (quote wrong)) (t (quote right)))`
 //! (`asm/entry-cond.s`) -- the bounded Nil/True `cond`-branching
-//! fixture from `conformance.my`'s `compiler-corpus` tag
+//! fixture from `conformance.lisp`'s `compiler-corpus` tag
 //! (`docs/compiler-oracle-corpus-parity-2026-09-11.md`, row 7),
 //! wsm-my-lisp#4's last remaining `pending` row.
 //!
@@ -20,7 +20,7 @@
 //!
 //! SCOPE NOTE (do not conflate with a larger claim): this proves the
 //! standalone fixture expression compiles and executes correctly. It
-//! does NOT prove that `external/sens/lib/meta-eval.my`'s own
+//! does NOT prove that `external/sens/lib/meta-eval.lisp`'s own
 //! `my-eval-cond` FUNCTION (part of the self-hosted evaluator's real
 //! call graph, `docs/ROADMAP.md` Stage 2) compiles -- that still needs
 //! general first-class application support in `x86_freestanding`,

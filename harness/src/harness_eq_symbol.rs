@@ -3,7 +3,7 @@
 //! only ever exercised `Fixnum` equality, so nothing in this repo
 //! proved `wsm_eq` behaves correctly on the other tagged word shape it
 //! must also compare. Mirrors the two `compiler-corpus` fixtures in
-//! `external/sens/tests/fixtures/conformance.my` for symbol `eq`:
+//! `external/sens/tests/fixtures/conformance.lisp` for symbol `eq`:
 //! `(eq (quote radio) (quote radio))` -> `t` and
 //! `(eq (quote radio) (quote antenna))` -> `()`. Image-local symbol
 //! ids are this harness's own choice (1 = "radio", 2 = "antenna"),

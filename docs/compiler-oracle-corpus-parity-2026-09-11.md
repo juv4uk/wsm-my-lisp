@@ -1,19 +1,19 @@
 # Compiler oracle corpus parity — wsm-my-lisp#4 (2026-09-11)
 
-Submodule `external/my-lisp` bumped `ccacc68` → `a5ade0b` (my-lisp's own
+Submodule `external/sens` bumped `ccacc68` → `a5ade0b` (my-lisp's own
 current semantic-projection commit) so this repo consumes the current
 `(compiler-corpus . t)`-tagged fixture set, rather than an earlier commit
 that predates that tagging. This document
 is the three-column observation table #4's acceptance criteria ask
 for, built by reading `wsm-my-lisp/harness/src/harness_*.rs` directly
-against `external/my-lisp/tests/fixtures/conformance.lisp`'s 17 tagged
+against `external/sens/tests/fixtures/conformance.lisp`'s 17 tagged
 records — not assumed or copied from an earlier audit.
 
 ## Columns
 
 - **my-lisp oracle**: the fixture's own `expr`/`expected` (or `error`)
   from `conformance.lisp`, unchanged, my-lisp's own authority.
-- **WSM/meta**: whether `external/my-lisp/lib/meta-eval.lisp` (the
+- **WSM/meta**: whether `external/sens/lib/meta-eval.lisp` (the
   self-hosted evaluator source) is expected to cover this shape at all
   — all 17 are ordinary evaluation, so this column is `yes` throughout;
   it exists structurally per #4's ask, not because any fixture here is
@@ -39,7 +39,7 @@ records — not assumed or copied from an earlier audit.
 ## The table
 
 All 17 `compiler-corpus`-tagged records, verified by `grep -n
-'compiler-corpus' external/my-lisp/tests/fixtures/conformance.lisp` at
+'compiler-corpus' external/sens/tests/fixtures/conformance.lisp` at
 this commit — no row omitted or collapsed.
 
 | # | expr | expected/error | WSM/meta | compiled/native target | status |

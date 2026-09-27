@@ -2,7 +2,7 @@
 //!
 //! Two descriptors with identical definition/environment payloads must still
 //! be distinct closure identities. That is the concrete machine property the
-//! current `meta-eval.my` result-token provenance relies on: a program cannot
+//! current `meta-eval.lisp` result-token provenance relies on: a program cannot
 //! forge token identity merely by reconstructing equal-looking Lisp data.
 
 use wsm_os_target::{CANONICAL_T, NIL, decode_closure_pointer, encode_fixnum};

@@ -155,7 +155,7 @@ wsm_atom:
  * SysV-механіка, потрібна CML для матеріалізації справжньої identity closure.
  * Окремий bump-арена робить дві однакові closure-конструкції різними Word,
  * тому `eq` природно перевіряє identity, а не структуру -- саме це потрібно
- * provenance-токенам поточного meta-eval.my.
+ * provenance-токенам поточного meta-eval.lisp.
  */
 
 /* wsm_closure_new(context [ignored], definition_id: u32, environment_ref: Word) -> Word */

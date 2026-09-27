@@ -6,7 +6,7 @@ speculative full-language table. Scope is deliberately narrow to what
 this repo owns per `docs/AUTHORITY.md`: proving conformant execution
 on the target without a Rust evaluator, not being semantic authority.
 Canonical `id`/`surfaces` columns are read directly from
-`external/my-lisp/lib/surface/semantic-registry.wsm` at the currently
+`external/sens/lib/surface/semantic-registry.lisp` at the currently
 pinned commit (`a5ade0b`) — not retyped from memory, and not owned
 here (my-lisp owns that file; this table only projects it).
 
@@ -23,7 +23,7 @@ display.
 
 - **canonical identity**: the `en` surface, used only as a stable
   human label for this table's own rows — not itself the identity.
-- **semantic id**: the numeric id from `semantic-registry.wsm` — the
+- **semantic id**: the numeric id from `semantic-registry.lisp` — the
   actual identity.
 - **surfaces**: every registered spelling for that id, verbatim.
 - **asm symbol**: the exported `asm/nucleus.s` label, or `—` if this
@@ -134,7 +134,7 @@ is not yet met. What partially substitutes today:
 drifting from its ratified reserved value (`SYMBOL_ID_MAX`), which
 covers the one canonical-`t`-identity mutation risk this repo's own
 asm carries. No equivalent test yet asserts this *table's* own
-correctness against `semantic-registry.wsm` mechanically — a future
+correctness against `semantic-registry.lisp` mechanically — a future
 increment could extend `scripts/check-lisp-first-authority.sh` (or a
 small Rust test) to regenerate the surfaces column from the registry
 and diff against this file, same discipline as

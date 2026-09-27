@@ -71,8 +71,8 @@ submodule (`5500ac2e`) і запускає `scripts/check-lisp-first-authority.l
 через бінарник:
 
 ```yaml
-cargo build --release --locked --manifest-path external/my-lisp/Cargo.toml -p my-lisp-cli
-external/my-lisp/target/release/my-lisp scripts/check-lisp-first-authority.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
+cargo build --release --locked --manifest-path external/sens/Cargo.toml -p my-lisp-cli
+external/sens/target/release/my-lisp scripts/check-lisp-first-authority.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
 ```
 
 Bash-версія `scripts/check-lisp-first-authority.sh` залишається в репо як

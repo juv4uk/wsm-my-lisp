@@ -1,5 +1,5 @@
 //! Parity witness for `(quote radio)` (`asm/entry-quote.s`) --
-//! `conformance.my`'s `compiler-corpus` row 1
+//! `conformance.lisp`'s `compiler-corpus` row 1
 //! (`docs/compiler-oracle-corpus-parity-2026-09-11.md`), the last
 //! remaining `pending` fixture that turned out to already be within
 //! `cml`'s existing capability -- same discovery pattern as

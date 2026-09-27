@@ -2,7 +2,7 @@
 //! witness coverage -- `harness-atom` only ever proved the positive
 //! case (`()` IS an atom). Found while auditing this repo's own
 //! primitive coverage for wsm-my-lisp#16. Mirrors
-//! `external/my-lisp/tests/fixtures/conformance.my`'s own
+//! `external/sens/tests/fixtures/conformance.my`'s own
 //! `(atom (quote (radio antenna)))` -> `()` oracle fixture (line 15,
 //! not itself `compiler-corpus`-tagged, but the same shape).
 //!

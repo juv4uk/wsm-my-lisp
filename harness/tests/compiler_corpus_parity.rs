@@ -2,9 +2,9 @@
 //! criterion: "deliberate mutation of one result/error/provenance
 //! field is caught." `docs/compiler-oracle-corpus-parity-2026-09-11.md`
 //! is a hand-maintained table describing all 17 `(compiler-corpus . t)`
-//! fixtures in `external/my-lisp/tests/fixtures/conformance.lisp` -- this
+//! fixtures in `external/sens/tests/fixtures/conformance.lisp` -- this
 //! test is the mechanical half that document's own "Parity gate note"
-//! section named as not yet done: if my-lisp changes any tagged
+//! section named as not yet done: if sens changes any tagged
 //! fixture's `expr`/`expected`/`error` (or adds/removes one), this
 //! fails closed instead of the parity doc silently going stale.
 //!
@@ -15,7 +15,7 @@
 //! so line-based extraction of the two fields this test cares about is
 //! sufficient and simpler than a general reader.
 
-const CONFORMANCE: &str = include_str!("../../external/my-lisp/tests/fixtures/conformance.lisp");
+const CONFORMANCE: &str = include_str!("../../external/sens/tests/fixtures/conformance.lisp");
 
 /// Extracts the quoted string value of `(key . "value")` from one line,
 /// or `None` if that key isn't present on the line.
@@ -52,9 +52,9 @@ fn tagged_fixtures() -> Vec<(String, Outcome)> {
 }
 
 /// The exact 17 fixtures documented in
-/// docs/compiler-oracle-corpus-parity-2026-09-11.md, as of my-lisp
-/// commit a5ade0b (the pinned external/my-lisp submodule commit).
-/// Update BOTH this list and that document together if my-lisp adds,
+/// docs/compiler-oracle-corpus-parity-2026-09-11.md, as of sens
+/// commit d3e5b93d (the pinned external/sens submodule commit).
+/// Update BOTH this list and that document together if sens adds,
 /// removes, or changes a `compiler-corpus` fixture -- that is the
 /// point of this test failing: it forces the parity doc to stay honest
 /// rather than silently drifting from the real corpus.
@@ -131,7 +131,7 @@ fn compiler_corpus_matches_documented_parity_table() {
         actual.len(),
         documented.len(),
         "conformance.lisp's compiler-corpus fixture count changed ({} found, {} documented) -- \
-         did external/my-lisp add/remove a tagged fixture? Update docs/compiler-oracle-corpus-parity-2026-09-11.md",
+         did external/sens add/remove a tagged fixture? Update docs/compiler-oracle-corpus-parity-2026-09-11.md",
         actual.len(),
         documented.len()
     );

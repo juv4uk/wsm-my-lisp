@@ -20,7 +20,7 @@
 //!
 //! SCOPE NOTE (do not conflate with a larger claim): this proves the
 //! standalone fixture expression compiles and executes correctly. It
-//! does NOT prove that `external/my-lisp/lib/meta-eval.my`'s own
+//! does NOT prove that `external/sens/lib/meta-eval.my`'s own
 //! `my-eval-cond` FUNCTION (part of the self-hosted evaluator's real
 //! call graph, `docs/ROADMAP.md` Stage 2) compiles -- that still needs
 //! general first-class application support in `x86_freestanding`,

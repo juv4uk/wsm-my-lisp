@@ -1,7 +1,7 @@
 ; check-machine-contracts.lisp — Lisp-first machine-contract gate for wsm-my-lisp.
 ;
 ; MACHINE-CONTRACT-1 (wsm-my-lisp#23): WSM does not invent machine facts locally.
-; It consumes Lisp-owned machine contracts from the pinned external/my-lisp
+; It consumes Lisp-owned machine contracts from the pinned external/sens
 ; submodule and fails closed on:
 ;   - missing/unknown contract version or schema;
 ;   - drift between a consumed contract fact and the pinned upstream authority;
@@ -13,7 +13,7 @@
 ; mechanical substrate for file/text checks, because the language does not yet
 ; expose read-dir/glob/string-split. CI invocation:
 ;
-;   external/my-lisp/target/release/my-lisp scripts/check-machine-contracts.lisp \
+;   external/sens/target/release/my-lisp scripts/check-machine-contracts.lisp \
 ;     || { cat .guard-report.txt 2>/dev/null; exit 1; }
 ;
 ; Fail mechanism: there is no begin/set!/raise/if; all branches are cond.
@@ -38,59 +38,59 @@
     (violation "MACHINE-CONTRACT-FAIL: authority violation -- offenders in .guard-report.txt")))
 
 ; --- 0. Single machine-readable import path must exist: pinned submodule ---
-(let ((pin (process-out "git -C external/my-lisp rev-parse HEAD 2>/dev/null || true")))
+(let ((pin (process-out "git -C external/sens rev-parse HEAD 2>/dev/null || true")))
   (cond
     ((string-empty? pin)
-     (armed-violation "external/my-lisp submodule not checked out -- cannot consume machine contracts"))
+     (armed-violation "external/sens submodule not checked out -- cannot consume machine contracts"))
     (t
       (princ "MACHINE-CONTRACT: pinned my-lisp = "))
     ))
 
 ; --- 1. Required Lisp-owned machine contracts must exist at the pin ---
 (cond
-  ((process-ok? "test -f external/my-lisp/machine-lowering-boundary.lisp")
+  ((process-ok? "test -f external/sens/machine-lowering-boundary.lisp")
    (princ "MACHINE-CONTRACT OK: machine-lowering-boundary.lisp present\n"))
-  (t (armed-violation "missing external/my-lisp/machine-lowering-boundary.lisp (Lisp-owned lowering authority)")))
+  (t (armed-violation "missing external/sens/machine-lowering-boundary.lisp (Lisp-owned lowering authority)")))
 
 (cond
-  ((process-ok? "test -f external/my-lisp/memory-layout-contract.lisp")
+  ((process-ok? "test -f external/sens/memory-layout-contract.lisp")
    (princ "MACHINE-CONTRACT OK: memory-layout-contract.lisp present\n"))
-  (t (armed-violation "missing external/my-lisp/memory-layout-contract.lisp (Lisp-owned memory layout authority)")))
+  (t (armed-violation "missing external/sens/memory-layout-contract.lisp (Lisp-owned memory layout authority)")))
 
 (cond
-  ((process-ok? "test -f external/my-lisp/lib/machine/lowering/semantic-x86-64.lisp")
+  ((process-ok? "test -f external/sens/lib/machine/lowering/semantic-x86-64.lisp")
    (princ "MACHINE-CONTRACT OK: lib/machine/lowering/semantic-x86-64.lisp present\n"))
-  (t (armed-violation "missing external/my-lisp/lib/machine/lowering/semantic-x86-64.lisp (Lisp-owned semantic lowering authority)")))
+  (t (armed-violation "missing external/sens/lib/machine/lowering/semantic-x86-64.lisp (Lisp-owned semantic lowering authority)")))
 
 (cond
-  ((process-ok? "test -f external/my-lisp/lib/machine/encoding/x86-64.lisp")
+  ((process-ok? "test -f external/sens/lib/machine/encoding/x86-64.lisp")
    (princ "MACHINE-CONTRACT OK: lib/machine/encoding/x86-64.lisp present\n"))
-  (t (armed-violation "missing external/my-lisp/lib/machine/encoding/x86-64.lisp (Lisp-owned x86-64 encoder authority)")))
+  (t (armed-violation "missing external/sens/lib/machine/encoding/x86-64.lisp (Lisp-owned x86-64 encoder authority)")))
 
 ; --- 2. Contract schema/version must be known ---
 (cond
-  ((process-ok? "grep -q '(schema machine-lowering-boundary/2)' external/my-lisp/machine-lowering-boundary.lisp")
+  ((process-ok? "grep -q '(schema machine-lowering-boundary/2)' external/sens/machine-lowering-boundary.lisp")
    (princ "MACHINE-CONTRACT OK: machine-lowering-boundary schema /2\n"))
   (t (armed-violation "machine-lowering-boundary has unknown/absent schema -- fail-closed")))
 
 (cond
-  ((process-ok? "grep -q '(version . (1 0))' external/my-lisp/memory-layout-contract.lisp")
+  ((process-ok? "grep -q '(version . (1 0))' external/sens/memory-layout-contract.lisp")
    (princ "MACHINE-CONTRACT OK: memory-layout-contract version (1 0)\n"))
   (t (armed-violation "memory-layout-contract has unknown/absent version -- fail-closed")))
 
 ; --- 3. Authority direction must be Lisp-owned, one-way, semantic-to-machine ---
 (cond
-  ((process-ok? "grep -q '(semantic-authority my-lisp)' external/my-lisp/machine-lowering-boundary.lisp")
+  ((process-ok? "grep -q '(semantic-authority my-lisp)' external/sens/machine-lowering-boundary.lisp")
    (princ "MACHINE-CONTRACT OK: semantic authority = my-lisp\n"))
   (t (armed-violation "boundary does not declare semantic-authority my-lisp")))
 
 (cond
-  ((process-ok? "grep -q '(lowering-direction semantic-to-machine)' external/my-lisp/machine-lowering-boundary.lisp")
+  ((process-ok? "grep -q '(lowering-direction semantic-to-machine)' external/sens/machine-lowering-boundary.lisp")
    (princ "MACHINE-CONTRACT OK: lowering direction semantic->machine\n"))
   (t (armed-violation "boundary lacks one-way semantic-to-machine lowering direction")))
 
 (cond
-  ((process-ok? "grep -q '(semantic-id-from-isa forbidden)' external/my-lisp/machine-lowering-boundary.lisp")
+  ((process-ok? "grep -q '(semantic-id-from-isa forbidden)' external/sens/machine-lowering-boundary.lisp")
    (princ "MACHINE-CONTRACT OK: semantic IDs must never originate from ISA/opcode/asm\n"))
   (t (armed-violation "boundary lacks semantic-id-from-isa forbidden -- semantic IDs could leak into ISA labels")))
 
@@ -100,7 +100,7 @@
 ; must not mint its own IDs from asm labels;
 ; it may only project these Lisp-owned IDs.
 (cond
-  ((process-ok? "for sid in 00000010 00000100 00000101 00000110; do grep -q \"$sid\" external/my-lisp/lib/machine/lowering/semantic-x86-64.lisp || exit 1; done")
+  ((process-ok? "for sid in 00000010 00000100 00000101 00000110; do grep -q \"$sid\" external/sens/lib/machine/lowering/semantic-x86-64.lisp || exit 1; done")
    (princ "MACHINE-CONTRACT OK: admitted-slice canonical 8-bit SIDs findable in Lisp-owned lowering profile\n"))
   (t
    (armed-violation "semantic-x86-64.lisp missing admitted-slice canonical 8-bit SIDs (00000010/00000100/00000101/00000110) -- cannot consume asserted meanings")))

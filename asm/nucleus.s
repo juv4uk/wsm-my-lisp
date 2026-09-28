@@ -40,7 +40,18 @@
     .equ TAG_NIL,     1
     .equ TAG_SYMBOL,  4
     .equ TAG_CLOSURE, 5
+    .equ TAG_BOXED,   7
     .equ TAG_MASK,    7
+
+    /* Mechanical projection of target-contract v7's exact SID8 boxed kind.
+     * The nucleus canonicalizes one runtime handle per exact 8-bit value so
+     * raw target-word equality remains exact bit identity, never a spelling
+     * or numeric coercion. */
+    .equ BOXED_KIND_SID8, 4
+    .equ SID8_BITS,        8
+    .equ SID8_MAX,       255
+    .equ SID8_ENTRY_BYTES, 2
+    .equ SID8_CAPACITY,  256
 
     /* wsm_os_target::ErrorCode -- mechanical projection, same pattern as
      * SYM_T_WORD above. Only the two variants this nucleus actually raises
@@ -147,6 +158,86 @@ wsm_atom:
     movl    $TAG_NIL, %eax          /* low 3 bits all zero => Tag::Cons => not an atom */
 1:  ret
     .size wsm_atom, . - wsm_atom
+
+/* Core1 S5 exact SID8 boxed transport.
+ *
+ * These two functions implement only the already-ratified target ABI
+ * mechanism. They do not resolve names, parse text, or define Lisp meaning.
+ * A SID8's target identity is its exact u8 payload. The bounded table has one
+ * canonical slot per possible payload, so repeated construction of the same
+ * bits returns the same Boxed word and wsm_eq remains exact-bit equality.
+ */
+
+/* wsm_sid8_new(context [ignored], bits: u64) -> Boxed Word */
+    .globl wsm_sid8_new
+    .type wsm_sid8_new, @function
+wsm_sid8_new:
+    cmpq    $SID8_MAX, %rsi
+    ja      .Lsid8_new_abi
+
+    leaq    wsm_sid8_table(%rip), %rcx
+    leaq    (%rcx,%rsi,2), %rcx
+    cmpb    $0, 0(%rcx)
+    je      .Lsid8_new_init
+    cmpb    $BOXED_KIND_SID8, 0(%rcx)
+    jne     .Lsid8_new_abi
+    cmpb    %sil, 1(%rcx)
+    jne     .Lsid8_new_abi
+    jmp     .Lsid8_new_encode
+
+.Lsid8_new_init:
+    movb    $BOXED_KIND_SID8, 0(%rcx)
+    movb    %sil, 1(%rcx)
+
+.Lsid8_new_encode:
+    leaq    1(%rsi), %rax           /* runtime handle = table index + 1 */
+    shlq    $3, %rax
+    orq     $TAG_BOXED, %rax
+    ret
+
+.Lsid8_new_abi:
+    movq    %rsi, %rdx              /* preserve rejected raw bits as evidence */
+    movl    $ERR_ABI_VIOLATION, %esi
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+    .size wsm_sid8_new, . - wsm_sid8_new
+
+/* wsm_sid8_bits(context [ignored], value: Boxed Word) -> raw u8 in eax */
+    .globl wsm_sid8_bits
+    .type wsm_sid8_bits, @function
+wsm_sid8_bits:
+    movq    %rsi, %rdx              /* preserve original word for failure evidence */
+    movq    %rsi, %rax
+    movq    %rax, %rcx
+    andq    $TAG_MASK, %rcx
+    cmpq    $TAG_BOXED, %rcx
+    jne     .Lsid8_bits_type
+
+    shrq    $3, %rax                /* boxed handle */
+    testq   %rax, %rax
+    jz      .Lsid8_bits_abi
+    cmpq    $SID8_CAPACITY, %rax
+    ja      .Lsid8_bits_abi
+
+    decq    %rax                    /* exact bits / table index */
+    leaq    wsm_sid8_table(%rip), %rcx
+    leaq    (%rcx,%rax,2), %rcx
+    cmpb    $BOXED_KIND_SID8, 0(%rcx)
+    jne     .Lsid8_bits_abi
+    cmpb    %al, 1(%rcx)
+    jne     .Lsid8_bits_abi
+    movzbl  1(%rcx), %eax
+    ret
+
+.Lsid8_bits_type:
+    movl    $ERR_TYPE, %esi
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+.Lsid8_bits_abi:
+    movl    $ERR_ABI_VIOLATION, %esi
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+    .size wsm_sid8_bits, . - wsm_sid8_bits
 
 /* Stage2 closure ABI.
  *
@@ -279,6 +370,12 @@ wsm_arena:
     .equ CLOSURE_ARENA_BYTES, 4096
 wsm_closure_arena:
     .zero CLOSURE_ARENA_BYTES
+
+    .align 2
+    /* One canonical boxed entry for every exact 8-bit identity. Entry byte 0
+     * is BoxedKind::Sid8 (=4) once constructed; byte 1 is the exact payload. */
+wsm_sid8_table:
+    .zero SID8_ENTRY_BYTES * SID8_CAPACITY
 
     /* .data, not .bss: these cells hold initialized addresses (relocations),
      * which a zero-initialized .bss section cannot carry. */

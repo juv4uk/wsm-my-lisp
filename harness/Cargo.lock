@@ -12,4 +12,4 @@ dependencies = [
 [[package]]
 name = "wsm-os-target"
 version = "0.1.0"
-source = "git+https://github.com/juv4uk/wsm-target-contract.git?rev=bb6e119#bb6e119d8056c7f5826f36a0dac2d693cd1946b1"
+source = "git+https://github.com/juv4uk/wsm-target-contract.git?rev=a03301315b6b590c0d0b997497cd2a43d1e4ea1f#a03301315b6b590c0d0b997497cd2a43d1e4ea1f"

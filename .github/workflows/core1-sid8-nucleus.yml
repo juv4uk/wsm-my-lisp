@@ -1,0 +1,64 @@
+name: Core1 SID8 nucleus witness
+
+on:
+  pull_request:
+    paths:
+      - "asm/nucleus.s"
+      - "harness/Cargo.toml"
+      - "harness/Cargo.lock"
+      - "harness/src/harness_sid8.rs"
+      - "harness/src/harness_sid8_trigger.rs"
+      - "harness/tests/sid8_error_path.rs"
+      - "harness/tests/semantic_authority.rs"
+      - ".github/workflows/core1-sid8-nucleus.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sid8-nucleus:
+    runs-on: [self-hosted, guix]
+    env:
+      RUSTC_WRAPPER: ""
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+      TARGET_CONTRACT_COMMIT: a03301315b6b590c0d0b997497cd2a43d1e4ea1f
+      TARGET_CONTRACT_CLONE: /home/agents/GitHub/wsm-target-contract
+    steps:
+      - name: Checkout wsm-my-lisp without unrelated private submodules
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          fetch-depth: 1
+
+      - name: Route pinned target-contract dependency to owner-local clone
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "$TARGET_CONTRACT_CLONE/.git"
+          git -C "$TARGET_CONTRACT_CLONE" cat-file -e "$TARGET_CONTRACT_COMMIT^{commit}"
+          cfg="$RUNNER_TEMP/core1-sid8-gitconfig"
+          : > "$cfg"
+          git config --file "$cfg" protocol.file.allow always
+          git config --file "$cfg" url."file://$TARGET_CONTRACT_CLONE".insteadOf https://github.com/juv4uk/wsm-target-contract.git
+          echo "GIT_CONFIG_GLOBAL=$cfg" >> "$GITHUB_ENV"
+
+      - name: Diff hygiene
+        run: git diff --check
+
+      - name: Rustfmt focused harness
+        run: cargo fmt --manifest-path harness/Cargo.toml -- --check
+
+      - name: Target projection guard
+        run: cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority
+
+      - name: SID8 fail-closed paths
+        run: cargo test --manifest-path harness/Cargo.toml --locked --test sid8_error_path -- --nocapture
+
+      - name: Exhaustive exact 8-bit round-trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-sid8)"
+          printf '%s\n' "$actual"
+          test "$actual" = "sid8 boxed transport: 256/256 exact"

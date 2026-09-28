@@ -54,8 +54,8 @@ jobs:
           actual="$(git -C external/sens rev-parse HEAD)"
           test "$actual" = "$expected"
           test -f external/sens/lib/meta-eval.lisp
-          grep -q '^(def my-eval-cond-result$' external/sens/lib/meta-eval.lisp
-          grep -q '^(def my-eval-result$' external/sens/lib/meta-eval.lisp
+          grep -q '^(00001001 my-eval-cond-result$' external/sens/lib/meta-eval.lisp
+          grep -q '^(00001001 my-eval-result$' external/sens/lib/meta-eval.lisp
 
       - name: Check semantic authority guard
         run: |

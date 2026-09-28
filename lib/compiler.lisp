@@ -30,34 +30,15 @@
       ((atom form) (quote ()))
       (t (eq (car form) name)))))
 
-(def compiler-primitive-sens
-  (lambda (name)
-    (cond
-      ((eq name 00001100) 00001100)
-      ((eq name 00001101) 00001101)
-      ((eq name 00000100) 00000100)
-      ((eq name 00000101) 00000101)
-      ((eq name 00000110) 00000110)
-      ((eq name 00000011) 00000011)
-      ((eq name 00000010) 00000010)
-      ((eq name (quote +)) 00001100)
-      ((eq name (quote -)) 00001101)
-      ((eq name (quote cons)) 00000100)
-      ((eq name (quote car)) 00000101)
-      ((eq name (quote cdr)) 00000110)
-      ((eq name (quote eq)) 00000011)
-      ((eq name (quote atom)) 00000010)
-      (t (quote ())))))
-
 (def compiler-primitive?
   (lambda (name)
-    (not (eq (compiler-primitive-sens name) (quote ())))))
+    (not (eq (C1-COMPILER-SID-FOR-SURFACE name) (quote ())))))
 
 (def compiler-sens-value?
   (lambda (form)
     (cond
       ((atom form)
-       (eq form (compiler-primitive-sens form)))
+       (C1-ADMITTED-SID-VALUEP form))
       (t (quote ())))))
 
 (def compiler-nil?
@@ -121,7 +102,7 @@
        (list (quote var) form))
       ((compiler-primitive? (car form))
        (list (quote prim)
-             (compiler-primitive-sens (car form))
+             (C1-COMPILER-SID-FOR-SURFACE (car form))
              (compiler-map compiler-form (cdr form))))
       (t
        (list (quote app)

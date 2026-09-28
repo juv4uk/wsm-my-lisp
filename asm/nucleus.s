@@ -40,7 +40,15 @@
     .equ TAG_NIL,     1
     .equ TAG_SYMBOL,  4
     .equ TAG_CLOSURE, 5
+    .equ TAG_BOXED,   7
     .equ TAG_MASK,    7
+
+    /* wsm-target-contract v7 BoxedKind::Sid8. This is target mechanism
+     * only: exact function meaning remains upstream; the nucleus stores and
+     * returns the original 8 bits without a surface-name projection. */
+    .equ BOXED_KIND_SID8, 4
+    .equ SID8_TABLE_ENTRIES, 256
+    .equ SID8_ENTRY_BYTES, 2
 
     /* wsm_os_target::ErrorCode -- mechanical projection, same pattern as
      * SYM_T_WORD above. Only the two variants this nucleus actually raises
@@ -241,6 +249,72 @@ wsm_closure_environment:
     jmp     wsm_fail
     .size wsm_closure_environment, . - wsm_closure_environment
 
+/* Exact SID8 boxed transport for the Core1 bootstrap fixed point.
+ *
+ * Boxed words carry a non-zero session-local handle, as required by the
+ * target contract. SID8 uses a canonical 256-slot table: handle = bits + 1.
+ * Therefore two occurrences of the same exact SID8 have the same target Word
+ * and wsm_eq naturally preserves exact identity without name reconstruction.
+ * Each table entry is two bytes: BoxedKind::Sid8 then the original u8 bits.
+ */
+
+/* wsm_sid8_new(context [ignored], bits: u8) -> Boxed Word */
+    .globl wsm_sid8_new
+    .type wsm_sid8_new, @function
+wsm_sid8_new:
+    cmpq    $255, %rsi
+    ja      .Lsid8_new_abi
+    movq    %rsi, %rax
+    leaq    wsm_sid8_table(%rip), %rcx
+    leaq    (%rcx,%rax,2), %rcx
+    movb    $BOXED_KIND_SID8, 0(%rcx)
+    movb    %sil, 1(%rcx)
+    addq    $1, %rax
+    shlq    $3, %rax
+    orq     $TAG_BOXED, %rax
+    ret
+.Lsid8_new_abi:
+    movl    $ERR_ABI_VIOLATION, %esi
+    xorl    %edx, %edx
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+    .size wsm_sid8_new, . - wsm_sid8_new
+
+/* wsm_sid8_bits(context [ignored], boxed_sid8: Word) -> raw u8 in eax */
+    .globl wsm_sid8_bits
+    .type wsm_sid8_bits, @function
+wsm_sid8_bits:
+    movq    %rsi, %rdx
+    movq    %rsi, %rax
+    andq    $TAG_MASK, %rax
+    cmpq    $TAG_BOXED, %rax
+    jne     .Lsid8_bits_type
+    movq    %rsi, %rax
+    shrq    $3, %rax
+    testq   %rax, %rax
+    jz      .Lsid8_bits_abi
+    cmpq    $SID8_TABLE_ENTRIES, %rax
+    ja      .Lsid8_bits_abi
+    subq    $1, %rax
+    leaq    wsm_sid8_table(%rip), %rcx
+    leaq    (%rcx,%rax,2), %rcx
+    cmpb    $BOXED_KIND_SID8, 0(%rcx)
+    jne     .Lsid8_bits_type
+    movzbl  1(%rcx), %ecx
+    cmpq    %rcx, %rax
+    jne     .Lsid8_bits_abi
+    movl    %ecx, %eax
+    ret
+.Lsid8_bits_type:
+    movl    $ERR_TYPE, %esi
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+.Lsid8_bits_abi:
+    movl    $ERR_ABI_VIOLATION, %esi
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+    .size wsm_sid8_bits, . - wsm_sid8_bits
+
 /* wsm_fail(context, code: u32, a: Word, b: Word) -> ! -- unrecoverable
  * condition (OOM/type/ABI violation here). No RuntimeContext::condition record
  * exists in this bounded nucleus, so this reports on stderr via raw Linux
@@ -279,6 +353,12 @@ wsm_arena:
     .equ CLOSURE_ARENA_BYTES, 4096
 wsm_closure_arena:
     .zero CLOSURE_ARENA_BYTES
+
+    .align 2
+    /* Canonical session-local SID8 boxed table: 256 x (kind:u8,bits:u8). */
+    .equ SID8_TABLE_BYTES, SID8_TABLE_ENTRIES * SID8_ENTRY_BYTES
+wsm_sid8_table:
+    .zero SID8_TABLE_BYTES
 
     /* .data, not .bss: these cells hold initialized addresses (relocations),
      * which a zero-initialized .bss section cannot carry. */

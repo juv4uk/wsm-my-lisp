@@ -358,9 +358,11 @@ wsm_fail_msg:
 
     .section .bss
     .align 16
-    /* 4096 bytes = 256 cons cells. Deliberately small and fixed: this pass
-     * proves the primitive ABI works, not a general-purpose heap. */
-    .equ ARENA_BYTES, 4096
+    /* 32768 bytes = 2048 cons cells. Still deliberately bounded: this is
+     * a bootstrap/runtime witness arena, not a general-purpose heap. 2048
+     * cells are enough to carry the 503-cell Core1 compiler source plus its
+     * next-generation emitted IR while preserving explicit fail-closed OOM. */
+    .equ ARENA_BYTES, 32768
 wsm_arena:
     .zero ARENA_BYTES
 

@@ -1,6 +1,6 @@
 use wsm_os_target::{
-    CLOSURE_ALIGNMENT, CLOSURE_BYTES, CLOSURE_DEFINITION_ID_OFFSET,
-    CLOSURE_ENVIRONMENT_REF_OFFSET, CANONICAL_T, NIL, SYMBOL_ID_MAX, TAG_BITS, TAG_MASK, Tag,
+    BoxedKind, Tag, CANONICAL_T, CLOSURE_ALIGNMENT, CLOSURE_BYTES, CLOSURE_DEFINITION_ID_OFFSET,
+    CLOSURE_ENVIRONMENT_REF_OFFSET, NIL, SYMBOL_ID_MAX, TAG_BITS, TAG_MASK,
 };
 
 const SYSV_NUCLEUS: &str = include_str!("../../asm/nucleus.s");
@@ -79,19 +79,23 @@ fn authority_violations(source: &str) -> Vec<String> {
     }
 
     if !code.contains(".equ SYM_T_WORD, (SYM_T_ID << 3) | TAG_SYMBOL") {
-        violations.push("SYM_T_WORD must stay a mechanical projection of canonical Symbol(t)".into());
+        violations
+            .push("SYM_T_WORD must stay a mechanical projection of canonical Symbol(t)".into());
     }
 
     let projected_t = (SYMBOL_ID_MAX << TAG_BITS) | Tag::Symbol as u64;
     if projected_t != CANONICAL_T {
-        violations.push("target-contract CANONICAL_T no longer matches its Symbol projection".into());
+        violations
+            .push("target-contract CANONICAL_T no longer matches its Symbol projection".into());
     }
 
     for label in ["wsm_eq", "wsm_atom"] {
         match function_body(&code, label) {
             Some(body) => {
                 if !body.contains("$SYM_T_WORD") {
-                    violations.push(format!("{label} positive branch must emit canonical Symbol(t)"));
+                    violations.push(format!(
+                        "{label} positive branch must emit canonical Symbol(t)"
+                    ));
                 }
                 if body.contains("$TAG_TRUE") {
                     violations.push(format!("{label} must not emit a backend-only true tag"));
@@ -126,9 +130,7 @@ fn authority_violations(source: &str) -> Vec<String> {
         ] {
             match equ_u64(&code, name) {
                 Some(value) if value == expected => {}
-                other => violations.push(format!(
-                    "{name} drift: {other:?}, contract={expected}"
-                )),
+                other => violations.push(format!("{name} drift: {other:?}, contract={expected}")),
             }
         }
         for label in [
@@ -137,7 +139,33 @@ fn authority_violations(source: &str) -> Vec<String> {
             "wsm_closure_environment",
         ] {
             if function_body(&code, label).is_none() {
-                violations.push(format!("cannot inspect ratified closure ABI function {label}"));
+                violations.push(format!(
+                    "cannot inspect ratified closure ABI function {label}"
+                ));
+            }
+        }
+    }
+
+    // SID8 boxed transport is optional per substrate, but if a nucleus exports
+    // it, the representation must remain a mechanical projection of the
+    // target contract and preserve all eight identity bits without names.
+    if code.contains("wsm_sid8_new:") {
+        for (name, expected) in [
+            ("TAG_BOXED", Tag::Boxed as u64),
+            ("BOXED_KIND_SID8", BoxedKind::Sid8 as u64),
+            ("SID8_TABLE_ENTRIES", 256),
+            ("SID8_ENTRY_BYTES", 2),
+        ] {
+            match equ_u64(&code, name) {
+                Some(value) if value == expected => {}
+                other => violations.push(format!(
+                    "{name} drift: {other:?}, contract/mechanism={expected}"
+                )),
+            }
+        }
+        for label in ["wsm_sid8_new", "wsm_sid8_bits"] {
+            if function_body(&code, label).is_none() {
+                violations.push(format!("cannot inspect ratified SID8 ABI function {label}"));
             }
         }
     }

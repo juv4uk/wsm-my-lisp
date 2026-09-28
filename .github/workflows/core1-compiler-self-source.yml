@@ -10,29 +10,31 @@ on:
 
 jobs:
   core1-compiler-self-source:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, author, guix]
     steps:
       - name: Checkout wsm-my-lisp with full local history
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Checkout my-lisp history
-        uses: actions/checkout@v5
-        with:
-          repository: juv4uk/my-lisp
-          path: my-lisp-upstream
-          fetch-depth: 0
-
-      - name: Checkout historical mccarthy-eval
-        uses: actions/checkout@v5
-        with:
-          repository: juv4uk/mccarthy-eval
-          path: mccarthy-eval
-          fetch-depth: 0
+      - name: Prepare exact source histories from canonical local clones
+        shell: bash
+        run: |
+          set -euo pipefail
+          SENS_CLONE=/home/agents/GitHub/sens
+          MCCARTHY_CLONE=/home/agents/GitHub/mccarthy-eval
+          test -d "$SENS_CLONE/.git"
+          test -d "$MCCARTHY_CLONE/.git"
+          git -C "$SENS_CLONE" fetch --quiet origin --prune
+          git -C "$MCCARTHY_CLONE" fetch --quiet origin --prune
+          rm -rf "$GITHUB_WORKSPACE/sens-upstream" "$GITHUB_WORKSPACE/mccarthy-eval"
+          git clone --quiet --no-hardlinks "$SENS_CLONE" "$GITHUB_WORKSPACE/sens-upstream"
+          git clone --quiet --no-hardlinks "$MCCARTHY_CLONE" "$GITHUB_WORKSPACE/mccarthy-eval"
+          git -C "$GITHUB_WORKSPACE/sens-upstream" log -1 --format='sens %H'
+          git -C "$GITHUB_WORKSPACE/mccarthy-eval" log -1 --format='mccarthy-eval %H'
 
       - name: Run exact Core1 compiler consumer/self-source witness
         env:
-          MY_LISP_REPO: ${{ github.workspace }}/my-lisp-upstream
+          MY_LISP_REPO: ${{ github.workspace }}/sens-upstream
           MCCARTHY_EVAL_REPO: ${{ github.workspace }}/mccarthy-eval
         run: scripts/check-core1-compiler-consumer.sh

@@ -1,6 +1,7 @@
 use wsm_os_target::{
-    CLOSURE_ALIGNMENT, CLOSURE_BYTES, CLOSURE_DEFINITION_ID_OFFSET,
-    CLOSURE_ENVIRONMENT_REF_OFFSET, CANONICAL_T, NIL, SYMBOL_ID_MAX, TAG_BITS, TAG_MASK, Tag,
+    BoxedKind, BoxedSid8, CLOSURE_ALIGNMENT, CLOSURE_BYTES, CLOSURE_DEFINITION_ID_OFFSET,
+    CLOSURE_ENVIRONMENT_REF_OFFSET, CANONICAL_T, NIL, SID8_BITS, SYMBOL_ID_MAX, TAG_BITS,
+    TAG_MASK, Tag,
 };
 
 const SYSV_NUCLEUS: &str = include_str!("../../asm/nucleus.s");
@@ -104,6 +105,45 @@ fn authority_violations(source: &str) -> Vec<String> {
     // Closure support is optional per nucleus today, but once a substrate
     // exports it, every representation constant must remain a mechanical
     // projection of the ratified target contract rather than local semantics.
+    // SID8 support is likewise optional until a nucleus exports it. Once
+    // present, every bit of its representation must be a mechanical
+    // projection of target-contract v7, never a spelling/numeric alias.
+    if code.contains("wsm_sid8_new:") {
+        for (name, expected) in [
+            ("TAG_BOXED", Tag::Boxed as u64),
+            ("BOXED_KIND_SID8", BoxedKind::Sid8 as u64),
+            ("SID8_BITS", SID8_BITS as u64),
+            ("SID8_ENTRY_BYTES", core::mem::size_of::<BoxedSid8>() as u64),
+        ] {
+            match equ_u64(&code, name) {
+                Some(value) if value == expected => {}
+                other => violations.push(format!(
+                    "{name} drift: {other:?}, contract={expected}"
+                )),
+            }
+        }
+        for label in ["wsm_sid8_new", "wsm_sid8_bits"] {
+            if function_body(&code, label).is_none() {
+                violations.push(format!("cannot inspect ratified SID8 ABI function {label}"));
+            }
+        }
+        let new_body = function_body(&code, "wsm_sid8_new").unwrap_or("");
+        if !new_body.contains("$SID8_MAX")
+            || !new_body.contains("$BOXED_KIND_SID8")
+            || !new_body.contains("$TAG_BOXED")
+        {
+            violations.push(
+                "wsm_sid8_new must validate exact 8-bit domain and emit target Boxed/Sid8".into(),
+            );
+        }
+        let bits_body = function_body(&code, "wsm_sid8_bits").unwrap_or("");
+        if !bits_body.contains("$TAG_BOXED") || !bits_body.contains("$BOXED_KIND_SID8") {
+            violations.push(
+                "wsm_sid8_bits must validate target Boxed/Sid8 before returning bits".into(),
+            );
+        }
+    }
+
     if code.contains("wsm_closure_new:") {
         match equ_u64(&code, "TAG_CLOSURE") {
             Some(value) if value == Tag::Closure as u64 => {}

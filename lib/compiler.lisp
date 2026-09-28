@@ -33,6 +33,13 @@
 (def compiler-primitive-sens
   (lambda (name)
     (cond
+      ((eq name 00001100) 00001100)
+      ((eq name 00001101) 00001101)
+      ((eq name 00000100) 00000100)
+      ((eq name 00000101) 00000101)
+      ((eq name 00000110) 00000110)
+      ((eq name 00000011) 00000011)
+      ((eq name 00000010) 00000010)
       ((eq name (quote +)) 00001100)
       ((eq name (quote -)) 00001101)
       ((eq name (quote cons)) 00000100)
@@ -45,6 +52,13 @@
 (def compiler-primitive?
   (lambda (name)
     (not (eq (compiler-primitive-sens name) (quote ())))))
+
+(def compiler-sens-value?
+  (lambda (form)
+    (cond
+      ((atom form)
+       (eq form (compiler-primitive-sens form)))
+      (t (quote ())))))
 
 (def compiler-nil?
   (lambda (form)
@@ -99,6 +113,10 @@
       ((compiler-head? form (quote cond))
        (cons (quote cond)
              (compiler-clauses (cdr form))))
+      ; `sid` is a portable-IR structural tag only. The exact eight bits in
+      ; `form` remain the SENS function identity; no second identity is minted.
+      ((compiler-sens-value? form)
+       (list (quote sid) form))
       ((atom form)
        (list (quote var) form))
       ((compiler-primitive? (car form))

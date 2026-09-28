@@ -30,17 +30,21 @@
       ((atom form) (quote ()))
       (t (eq (car form) name)))))
 
-(def compiler-primitive?
+(def compiler-primitive-sens
   (lambda (name)
     (cond
-      ((eq name (quote +)) t)
-      ((eq name (quote -)) t)
-      ((eq name (quote cons)) t)
-      ((eq name (quote car)) t)
-      ((eq name (quote cdr)) t)
-      ((eq name (quote eq)) t)
-      ((eq name (quote atom)) t)
+      ((eq name (quote +)) 00001100)
+      ((eq name (quote -)) 00001101)
+      ((eq name (quote cons)) 00000100)
+      ((eq name (quote car)) 00000101)
+      ((eq name (quote cdr)) 00000110)
+      ((eq name (quote eq)) 00000011)
+      ((eq name (quote atom)) 00000010)
       (t (quote ())))))
+
+(def compiler-primitive?
+  (lambda (name)
+    (not (eq (compiler-primitive-sens name) (quote ())))))
 
 (def compiler-nil?
   (lambda (form)
@@ -99,7 +103,7 @@
        (list (quote var) form))
       ((compiler-primitive? (car form))
        (list (quote prim)
-             (car form)
+             (compiler-primitive-sens (car form))
              (compiler-map compiler-form (cdr form))))
       (t
        (list (quote app)

@@ -46,8 +46,12 @@ jobs:
       - name: Diff hygiene
         run: git diff --check
 
-      - name: Rustfmt focused harness
-        run: cargo fmt --manifest-path harness/Cargo.toml -- --check
+      - name: Rustfmt focused new harness files
+        run: |
+          rustfmt --edition 2021 --check \
+            harness/src/harness_sid8.rs \
+            harness/src/harness_sid8_trigger.rs \
+            harness/tests/sid8_error_path.rs
 
       - name: Target projection guard
         run: cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority

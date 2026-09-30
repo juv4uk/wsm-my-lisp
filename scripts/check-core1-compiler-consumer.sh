@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Exact consumer-side witness for wsm-my-lisp#43.
-# It does not modify my-lisp Core1, CML, or mccarthy-eval.
+# It does not modify sens Core1, CML, or mccarthy-eval.
 set -euo pipefail
 
 root_dir=$(git rev-parse --show-toplevel)
-my_lisp_repo=${MY_LISP_REPO:-/home/agents/GitHub/my-lisp}
+sens_repo=${SENS_REPO:-/home/agents/GitHub/sens}
 mccarthy_repo=${MCCARTHY_EVAL_REPO:-/home/agents/GitHub/mccarthy-eval}
 core1_rev=${CORE1_REV:-d359c4885e0609a6c8350daf45de157b40cf48f3}
 seed_rev=1ae9745b66a1439c1929b0d9038c680567118a58
@@ -18,11 +18,11 @@ require_rev() {
   git -C "$1" cat-file -e "$2^{commit}"
 }
 
-require_rev "$my_lisp_repo" "$core1_rev"
+require_rev "$sens_repo" "$core1_rev"
 require_rev "$mccarthy_repo" "$seed_rev"
 require_rev "$root_dir" "$compiler_rev"
 
-git -C "$my_lisp_repo" show "$core1_rev:lib/core1.lisp" > "$scratch_dir/core1.lisp"
+git -C "$sens_repo" show "$core1_rev:lib/core1.lisp" > "$scratch_dir/core1.lisp"
 git -C "$root_dir" show "$compiler_rev:lib/compiler.lisp" > "$scratch_dir/compiler.lisp"
 test "$(git hash-object "$scratch_dir/core1.lisp")" = "$core1_blob"
 test "$(git hash-object "$scratch_dir/compiler.lisp")" = "$compiler_blob"

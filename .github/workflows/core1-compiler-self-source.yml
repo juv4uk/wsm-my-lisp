@@ -5,6 +5,8 @@ on:
     paths:
       - "lib/compiler.lisp"
       - "scripts/check-core1-compiler-consumer.sh"
+      - "scripts/check-core1-portable-sid8.sh"
+      - "external/sens"
       - ".github/workflows/core1-compiler-self-source.yml"
   workflow_dispatch:
 
@@ -16,6 +18,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          submodules: recursive
 
       - name: Prepare exact source histories from canonical local clones
         shell: bash
@@ -38,3 +41,9 @@ jobs:
           SENS_REPO: ${{ github.workspace }}/sens-upstream
           MCCARTHY_EVAL_REPO: ${{ github.workspace }}/mccarthy-eval
         run: scripts/check-core1-compiler-consumer.sh
+
+      - name: Run current SENS-pinned portable SID8 compiler witness
+        env:
+          SENS_REPO: ${{ github.workspace }}/external/sens
+          MCCARTHY_EVAL_REPO: ${{ github.workspace }}/mccarthy-eval
+        run: bash scripts/check-core1-portable-sid8.sh

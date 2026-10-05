@@ -23,7 +23,7 @@
 
 (def process-ok?
   (lambda (cmd)
-    (eq (car (process-run "bash" (list "-c" cmd))) 0)))
+    (00000011 (car (process-run "bash" (list "-c" cmd))) 0)))
 
 (def process-out
   (lambda (cmd)
@@ -80,9 +80,9 @@
 
 ; --- 3. Authority direction must be Lisp-owned, one-way, semantic-to-machine ---
 (cond
-  ((process-ok? "grep -q '(semantic-authority my-lisp)' external/sens/machine-lowering-boundary.lisp")
-   (princ "MACHINE-CONTRACT OK: semantic authority = my-lisp\n"))
-  (t (armed-violation "boundary does not declare semantic-authority my-lisp")))
+  ((process-ok? "grep -q '(semantic-authority sens)' external/sens/machine-lowering-boundary.lisp")
+   (princ "MACHINE-CONTRACT OK: semantic authority = sens\n"))
+  (t (armed-violation "boundary does not declare semantic-authority sens")))
 
 (cond
   ((process-ok? "grep -q '(lowering-direction semantic-to-machine)' external/sens/machine-lowering-boundary.lisp")

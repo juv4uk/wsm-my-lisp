@@ -35,6 +35,6 @@ jobs:
 
       - name: Run exact Core1 compiler consumer/self-source witness
         env:
-          MY_LISP_REPO: ${{ github.workspace }}/sens-upstream
+          SENS_REPO: ${{ github.workspace }}/sens-upstream
           MCCARTHY_EVAL_REPO: ${{ github.workspace }}/mccarthy-eval
         run: scripts/check-core1-compiler-consumer.sh

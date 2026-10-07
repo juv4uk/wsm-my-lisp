@@ -66,5 +66,9 @@ name = "harness-sid8-trigger"
 path = "src/harness_sid8_trigger.rs"
 
 [[bin]]
+name = "harness-predicate-bit"
+path = "src/harness_predicate_bit.rs"
+
+[[bin]]
 name = "harness-arena-capacity"
 path = "src/harness_arena_capacity.rs"

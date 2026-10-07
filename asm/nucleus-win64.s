@@ -41,7 +41,16 @@
     .equ TAG_CONS,   0
     .equ TAG_NIL,    1
     .equ TAG_SYMBOL, 4
+    .equ TAG_BOXED,  7
     .equ TAG_MASK,   7
+
+    .equ BOXED_KIND_PREDICATE_BIT, 5
+    .equ PREDICATE_BIT_BITS,       1
+    .equ PREDICATE_ENTRY_BYTES,    2
+    .equ PREDICATE_BIT0_HANDLE,  257
+    .equ PREDICATE_BIT1_HANDLE,  258
+    .equ PREDICATE_BIT0_WORD, (PREDICATE_BIT0_HANDLE << 3) | TAG_BOXED
+    .equ PREDICATE_BIT1_WORD, (PREDICATE_BIT1_HANDLE << 3) | TAG_BOXED
 
     /* wsm_os_target::ErrorCode -- mechanical projection, same values as
      * nucleus.s's own ERR_* constants (kept in sync by hand; both files
@@ -49,6 +58,7 @@
      * conventions, not independent specifications). */
     .equ ERR_OUT_OF_MEMORY, 1
     .equ ERR_TYPE,          2
+    .equ ERR_ABI_VIOLATION, 4
 
     .equ SYM_T_ID,   0x1FFFFFFFFFFFFFFF   /* wsm_os_target::SYMBOL_ID_MAX */
     .equ SYM_T_WORD, (SYM_T_ID << 3) | TAG_SYMBOL   /* wsm_os_target::encode_symbol(SYM_T_ID) */
@@ -143,6 +153,68 @@ wsm_atom:
     movl    $TAG_NIL, %eax          /* low 3 bits all zero => Tag::Cons => not an atom */
 1:  ret
 
+/* Draft target-contract #33 PredicateBit carrier. The Win64 target mirrors
+ * SysV's representation-only bit0/bit1 singleton ABI; no predicate semantics
+ * are assigned in this file. */
+    .globl wsm_predicate_bit_0
+wsm_predicate_bit_0:
+    movl    $PREDICATE_BIT0_WORD, %eax
+    ret
+
+    .globl wsm_predicate_bit_1
+wsm_predicate_bit_1:
+    movl    $PREDICATE_BIT1_WORD, %eax
+    ret
+
+    .globl wsm_predicate_bit_bits
+wsm_predicate_bit_bits:
+    movq    %rdx, %rax
+    movq    %rax, %r9
+    andq    $TAG_MASK, %r9
+    cmpq    $TAG_BOXED, %r9
+    jne     .Lpredicate_bits_type_win64
+
+    shrq    $3, %rax
+    cmpq    $PREDICATE_BIT0_HANDLE, %rax
+    je      .Lpredicate_bits_0_win64
+    cmpq    $PREDICATE_BIT1_HANDLE, %rax
+    je      .Lpredicate_bits_1_win64
+    jmp     .Lpredicate_bits_abi_win64
+
+.Lpredicate_bits_0_win64:
+    leaq    wsm_predicate_bit_table(%rip), %r9
+    cmpb    $BOXED_KIND_PREDICATE_BIT, 0(%r9)
+    jne     .Lpredicate_bits_abi_win64
+    cmpb    $0, 1(%r9)
+    jne     .Lpredicate_bits_abi_win64
+    xorl    %eax, %eax
+    ret
+
+.Lpredicate_bits_1_win64:
+    leaq    wsm_predicate_bit_table+PREDICATE_ENTRY_BYTES(%rip), %r9
+    cmpb    $BOXED_KIND_PREDICATE_BIT, 0(%r9)
+    jne     .Lpredicate_bits_abi_win64
+    cmpb    $1, 1(%r9)
+    jne     .Lpredicate_bits_abi_win64
+    movl    $1, %eax
+    ret
+
+.Lpredicate_bits_type_win64:
+    subq    $40, %rsp
+    movl    $ERR_TYPE, %ecx
+    xorl    %r8d, %r8d
+    call    wsm_fail_win64
+    addq    $40, %rsp
+    ret
+
+.Lpredicate_bits_abi_win64:
+    subq    $40, %rsp
+    movl    $ERR_ABI_VIOLATION, %ecx
+    xorl    %r8d, %r8d
+    call    wsm_fail_win64
+    addq    $40, %rsp
+    ret
+
 /* wsm_arena_reset(context [rcx, ignored]) -> void -- rewinds the bump
  * pointer back to the arena's start, discarding every cons cell
  * allocated since the last reset (or since load, if never reset). NOT
@@ -176,6 +248,11 @@ wsm_arena:
     .zero ARENA_BYTES
 
     .section .data
+    .align 2
+wsm_predicate_bit_table:
+    .byte BOXED_KIND_PREDICATE_BIT, 0
+    .byte BOXED_KIND_PREDICATE_BIT, 1
+
     .align 8
 wsm_arena_next:
     .quad wsm_arena

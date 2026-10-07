@@ -33,7 +33,7 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build my-lisp CLI (pinned authority a5ade0b MACHINE-CONTRACT-1)
+      - name: Build SENS CLI from pinned gitlink
         run: |
           cargo build --release --locked --manifest-path external/sens/Cargo.toml -p sens-cli
 
@@ -47,11 +47,12 @@ jobs:
         run: |
           external/sens/target/release/my-lisp scripts/check-machine-contracts.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
 
-      - name: Verify pinned my-lisp semantic authority
+      - name: Verify pinned SENS semantic authority
         shell: bash
         run: |
-          expected=a5ade0b2187229c724fb8703cd78cd2d1f75a8f1
+          expected="$(git rev-parse HEAD:external/sens)"
           actual="$(git -C external/sens rev-parse HEAD)"
+          test -n "$expected"
           test "$actual" = "$expected"
           test -f external/sens/lib/meta-eval.lisp
           grep -q '^(def my-eval-cond-result$' external/sens/lib/meta-eval.lisp

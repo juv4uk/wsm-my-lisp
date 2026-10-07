@@ -66,12 +66,12 @@ my-lisp не має begin/set!/raise. Armed-violation використовує �
 ## CI
 
 CI (`self-hosting-authority.yml`) більше не викликає bash-версію напряму:
-крок "Lisp-first authority guard (P0 #15)" збирає `my-lisp-cli` з pinned
+крок "Lisp-first authority guard (P0 #15)" збирає `sens-cli` з pinned
 submodule (`5500ac2e`) і запускає `scripts/check-lisp-first-authority.lisp`
 через бінарник:
 
 ```yaml
-cargo build --release --locked --manifest-path external/sens/Cargo.toml -p my-lisp-cli
+cargo build --release --locked --manifest-path external/sens/Cargo.toml -p sens-cli
 external/sens/target/release/my-lisp scripts/check-lisp-first-authority.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
 ```
 

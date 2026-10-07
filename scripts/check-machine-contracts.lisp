@@ -23,7 +23,7 @@
 
 (def process-ok?
   (lambda (cmd)
-    (eq (car (process-run "bash" (list "-c" cmd))) 0)))
+    (eq? (car (process-run "bash" (list "-c" cmd))) 0)))
 
 (def process-out
   (lambda (cmd)

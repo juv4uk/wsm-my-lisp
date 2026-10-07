@@ -34,8 +34,8 @@ jobs:
           test -n "$expected"
           test "$actual" = "$expected"
           test -f external/sens/lib/meta-eval.lisp
-          grep -Eq '^\(00001001[[:space:]]+my-eval-cond-result([[:space:]]|$)' external/sens/lib/meta-eval.lisp
-          grep -Eq '^\(00001001[[:space:]]+my-eval-result([[:space:]]|$)' external/sens/lib/meta-eval.lisp
+          grep -Eq '^[[:space:]]*\(00001001[[:space:]]+my-eval-cond-result([[:space:]]|$)' external/sens/lib/meta-eval.lisp
+          grep -Eq '^[[:space:]]*\(00001001[[:space:]]+my-eval-result([[:space:]]|$)' external/sens/lib/meta-eval.lisp
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable

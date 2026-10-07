@@ -30,8 +30,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify candidate target pin
         run: |
-          grep -F 'fbafef50e408c0cdf6ed1f21a8743b80341b919a' harness/Cargo.toml
-          grep -F 'fbafef50e408c0cdf6ed1f21a8743b80341b919a' harness/Cargo.lock
+          grep -F 'b5ec3211f6bd07fb7c4a5f704875892eff145b91' harness/Cargo.toml
+          grep -F 'b5ec3211f6bd07fb7c4a5f704875892eff145b91' harness/Cargo.lock
       - name: Semantic authority audit
         run: cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority -- --nocapture
       - name: Execute PredicateBit carrier witness

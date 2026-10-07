@@ -458,16 +458,16 @@ wsm_closure_arena:
 wsm_sid8_table:
     .zero SID8_ENTRY_BYTES * SID8_CAPACITY
 
+    /* PredicateBit singleton descriptors contain initialized bytes and must
+     * therefore live in .data, not .bss. Handles 257/258 extend the same
+     * runtime-owned Boxed handle space immediately after SID8's 1..256. */
+    .section .data
     .align 2
-    /* Handles 257 and 258 extend the same runtime-owned Boxed handle space
-     * immediately after the 256 canonical SID8 slots. */
 wsm_predicate_bit_table:
     .byte BOXED_KIND_PREDICATE_BIT, 0
     .byte BOXED_KIND_PREDICATE_BIT, 1
 
-    /* .data, not .bss: these cells hold initialized addresses (relocations),
-     * which a zero-initialized .bss section cannot carry. */
-    .section .data
+    /* These cells also hold initialized addresses (relocations). */
     .align 8
 wsm_arena_next:
     .quad wsm_arena

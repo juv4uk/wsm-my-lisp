@@ -35,7 +35,7 @@ jobs:
 
       - name: Build my-lisp CLI (pinned authority a5ade0b MACHINE-CONTRACT-1)
         run: |
-          cargo build --release --locked --manifest-path external/sens/Cargo.toml -p my-lisp-cli
+          cargo build --release --locked --manifest-path external/sens/Cargo.toml -p sens-cli
 
       - name: Lisp-first authority guard (P0 #15)
         shell: bash

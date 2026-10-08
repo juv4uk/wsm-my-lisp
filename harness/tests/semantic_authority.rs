@@ -194,6 +194,20 @@ fn authority_violations(source: &str) -> Vec<String> {
         }
     }
 
+    if code.contains("wsm_eq_d1:") {
+        let body = function_body(&code, "wsm_eq_d1").unwrap_or("");
+        if body.contains("$TAG_NIL") {
+            violations.push(
+                "wsm_eq_d1 must not turn pair-domain errors into structural EMPTY".into(),
+            );
+        }
+        if !body.contains("$ERR_TYPE") || !body.contains("wsm_fail") {
+            violations.push(
+                "wsm_eq_d1 pair-domain rejection must use the pinned Type failure ABI".into(),
+            );
+        }
+    }
+
     if code.contains("wsm_closure_new:") {
         match equ_u64(&code, "TAG_CLOSURE") {
             Some(value) if value == Tag::Closure as u64 => {}

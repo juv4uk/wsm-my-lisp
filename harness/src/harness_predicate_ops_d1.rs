@@ -33,16 +33,18 @@ fn main() {
     assert_eq!(bit(ctx, atom_fixnum), 1, "fixnum is an atom");
     assert_eq!(bit(ctx, atom_pair), 0, "CONS is not an atom");
 
-    // EQ is partial: atom/atom returns D1; any non-atom input returns EMPTY.
+    // EQ is atom-domain only: admitted atom/atom calls return D1.
     let eq_same = unsafe { wsm_eq_d1(ctx, one, one) };
     let eq_diff = unsafe { wsm_eq_d1(ctx, one, two) };
-    let eq_pair = unsafe { wsm_eq_d1(ctx, pair, pair) };
     assert_eq!(bit(ctx, eq_same), 1, "same admitted atoms -> D1:1");
     assert_eq!(bit(ctx, eq_diff), 0, "distinct admitted atoms -> D1:0");
-    assert_eq!(
-        eq_pair, NIL,
-        "EQ outside the atom domain -> structural EMPTY/no-witness, not D1:0"
-    );
 
-    println!("current-d1 predicate mechanisms: ATOM total, EQ partial, EMPTY preserved");
+    if std::env::args().any(|arg| arg == "--pair-eq-type-error") {
+        // Contract 11.8 requires the nucleus to terminate through its named
+        // Type failure path. Returning from this call is itself a regression.
+        let _ = unsafe { wsm_eq_d1(ctx, pair, pair) };
+        panic!("pair EQ returned instead of failing Type");
+    }
+
+    println!("current-d1 predicate mechanisms: ATOM total, EQ atom-domain exact D1");
 }

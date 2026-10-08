@@ -34,7 +34,10 @@ fn main() {
     assert_eq!(rest, tail);
     assert_eq!(tag(rest), Tag::Cons as u64);
     let second = unsafe { wsm_car(context, rest) };
-    assert_eq!(second, NIL, "Core1 C1-SECOND native effect must yield EMPTY");
+    assert_eq!(
+        second, NIL,
+        "Core1 C1-SECOND native effect must yield EMPTY"
+    );
 
     println!("native Core1 C1-SECOND mechanism: CAR(CDR(CONS(NIL,CONS(NIL,NIL)))) == NIL");
     println!("NOTE: WSM target mechanism only; physical T5→compiled-native handoff pending");

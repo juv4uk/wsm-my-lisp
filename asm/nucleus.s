@@ -177,9 +177,8 @@ wsm_atom:
  * entrypoints are selected only after current SENS admission.
  *
  * ATOM_D1 is total: atom -> PredicateBit(1), CONS -> PredicateBit(0).
- * EQ_D1 is partial: atom/atom -> PredicateBit(1/0); if either operand is
- * CONS, return structural EMPTY/NIL as the no-witness result. EMPTY is not
- * PredicateBit(0).
+ * EQ_D1 is atom-domain only: atom/atom -> PredicateBit(1/0); if either
+ * operand is CONS, the current SENS law requires the named Type failure.
  */
 
 /* wsm_atom_d1(context [ignored], value: Word) -> PredicateBit Word */
@@ -194,7 +193,7 @@ wsm_atom_d1:
     .size wsm_atom_d1, . - wsm_atom_d1
 
 /* wsm_eq_d1(context [ignored], left: Word, right: Word)
- * -> PredicateBit Word for atom/atom, structural EMPTY for non-atom input.
+ * -> PredicateBit Word for atom/atom; Type failure for non-atom input.
  */
     .globl wsm_eq_d1
     .type wsm_eq_d1, @function
@@ -202,11 +201,11 @@ wsm_eq_d1:
     movq    %rsi, %rax
     andq    $TAG_MASK, %rax
     cmpq    $TAG_CONS, %rax
-    je      .Leq_d1_empty
+    je      .Leq_d1_type
     movq    %rdx, %rax
     andq    $TAG_MASK, %rax
     cmpq    $TAG_CONS, %rax
-    je      .Leq_d1_empty
+    je      .Leq_d1_type
 
     movl    $PREDICATE_BIT0_WORD, %eax
     cmpq    %rdx, %rsi
@@ -215,9 +214,11 @@ wsm_eq_d1:
 .Leq_d1_done:
     ret
 
-.Leq_d1_empty:
-    movl    $TAG_NIL, %eax
-    ret
+.Leq_d1_type:
+    movl    $ERR_TYPE, %esi
+    xorl    %edx, %edx
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
     .size wsm_eq_d1, . - wsm_eq_d1
 
 /* Core1 S5 exact SID8 boxed transport.

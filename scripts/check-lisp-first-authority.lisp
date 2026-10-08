@@ -99,7 +99,7 @@
      ((процес-успішний? "grep -E '^\\s*- \"dll/' .github/workflows/self-hosting-authority.yml") 1
       (violation "AUTHORITY-FAIL: self-hosting-authority.yml must not path-trigger on dll/ (deleted)"))
      ((процес-успішний? "grep -E '^\\s*- \"dll/' .github/workflows/self-hosting-authority.yml") 0
-      (показати "AUTHORITY OK: self-hosting workflow carries no dll/ path trigger\n")))
+      (показати "AUTHORITY OK: self-hosting workflow carries no dll/ path trigger\n"))))
   ((процес-успішний? "test -f .github/workflows/self-hosting-authority.yml") 0
    ()))
 

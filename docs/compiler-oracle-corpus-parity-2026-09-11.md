@@ -45,16 +45,16 @@ this commit — no row omitted or collapsed.
 | # | expr | expected/error | WSM/meta | compiled/native target | status |
 |---|---|---|---|---|---|
 | 1 | `(quote radio)` | `radio` | yes | `harness-quote` (added 2026-09-12) — real `cml x86-asm` CLI compile of a file containing this exact source; linked against this repo's `asm/nucleus.s`, executed, returns `radio` | **confirmed** |
-| 2 | `(atom (quote radio))` | `(structural-kind atom)` | yes | `harness-atom` tests `(atom (quote ()))`, different literal | related |
-| 3 | `(eq (quote radio) (quote radio))` | `(identity-relation same)` | yes | `harness-eq-symbol` (added 2026-09-12) proves `wsm_eq` on matching `Symbol` ids directly — literal symbol *names* (`radio` vs. image-local id `1`) still differ from a real CML-compiled entry, so this stays `related` rather than byte-exact `confirmed` | related (upgraded from Fixnum-only to Symbol-level) |
+| 2 | `(00000010 (quote radio))` | `(1)` | yes | current exact-D1 ATOM corpus row; `harness-atom` is historical/compatibility evidence only until #78 migrates the native result carrier | related |
+| 3 | `(00000011 (quote radio) (quote radio))` | `(1)` | yes | current exact-D1 EQ corpus row; the historical `harness-eq-symbol` proves target word identity only, not the new PredicateBit result carrier | related |
 | 4 | `(car (quote (radio antenna)))` | `radio` | yes | `harness-cons` calls `wsm_car` on `(cons (quote A) (quote B))`'s result, different literals/shape | related |
 | 5 | `(cdr (quote (radio antenna)))` | `(antenna)` | yes | `harness-cons` calls `wsm_cdr` similarly, different literals/shape | related |
 | 6 | `(cons (quote radio) (quote (antenna)))` | `(radio antenna)` | yes | `harness-cons` proves `(cons (quote A) (quote B))` → `(A . B)` — different structure (atom+list here vs atom+atom there) | related |
 | 7 | `(cond (() (quote wrong)) (t (quote right)))` | `right` | yes | `harness-cond` (added 2026-09-12) — real cml front-end compile (`parser::parse` → `lower::lower_program` → `x86_freestanding`), not hand-built IR; linked against this repo's `asm/nucleus.s`, executed, returns `right` | **confirmed** |
 | 8 | `(/ 5 6 8 7)` | `5/336` | yes | none — no rational-arithmetic asm primitive exists in `asm/nucleus.s` | unsupported |
-| 9 | `(eq (lambda (x) x) (lambda (x) x))` | `(identity-relation distinct)` | yes | `harness-closure` proves closure identity via direct `wsm_closure_new` ABI calls, not through evaluated `(lambda ...)` sugar | related |
+| 9 | `(00000011 (lambda (x) x) (lambda (x) x))` | `(0)` | yes | current exact-D1 EQ corpus row; `harness-closure` proves closure identity via direct `wsm_closure_new` ABI calls, while PredicateBit projection remains part of #78/#618 | related |
 | 10 | `(defmacro foo)` | error `Arity` | yes | none — no macro support in the asm nucleus | unsupported |
-| 11 | `(def count-down (lambda (n) (cond ((eq n 0) (quote done)) (t (count-down (- n 1)))))) (count-down 100000)` | `done` | yes | `harness-countdown` — same shape (bounded self-tail-recursion, 100k), CML-generated entry, linked only against `asm/nucleus.s` | **confirmed** |
+| 11 | `(def count-down (lambda (n) (cond ((00000011 n 0) (quote done)) (t (count-down (- n 1)))))) (count-down 100000)` | `done` | yes | `harness-countdown` — same bounded self-tail-recursion shape; current corpus uses the binary EQ identity directly | **confirmed** |
 | 12 | `((lambda (a b . rest) rest) 1 2 3 4 5)` | `(3 4 5)` | yes | `cml` commit `1104657` (`tests/x86_top_level_let_test.rs::row12_corpus_fixture_exact_witness`) proves variadic lambda application with right-to-left `wsm_cons` folding, returning `(3 4 5)` linked against `asm/nucleus.s` | **confirmed** |
 | 13 | `((lambda args args) 1 2 3)` | `(1 2 3)` | yes | `cml` commit `1104657` (`tests/x86_top_level_let_test.rs::row13_corpus_fixture_exact_witness`) proves all-rest lambda application with right-to-left `wsm_cons` folding, returning `(1 2 3)` linked against `asm/nucleus.s` | **confirmed** |
 | 14 | `((lambda (a b . rest) a) 1)` | error `Arity` | yes | `cml` commit `1104657` (`tests/x86_freestanding_test.rs::variadic_lambda_under_arity_is_rejected`) proves fail-closed compile-time rejection with `InvalidArity { expected: 2, actual: 1 }` | **confirmed** |
@@ -119,15 +119,9 @@ match. Run explicitly in the fast PR-gate workflow
 (`self-hosting-authority.yml`), not just the nightly deep gate, so
 drift is caught on every PR.
 
-**Still not done**: the test's own `documented_fixtures()` list is
-hand-copied from this table (line-based text extraction, not a
-build-time-generated projection) — a real duplication this repo's own
-`docs/canon-dispatch-migration-plan.md` names as the discipline to
-avoid, accepted here as a smaller, honest gap than having no
-mechanical check at all. A future increment could generate that list
-from `(wsm-native . (...))`-shaped key on each fixture record instead,
-per `docs/archive/superseded/shared-oracle-corpus-fixture-format-proposal.md`'s
-original sketch — deferred, since it needs my-lisp's agreement on the
-exact key shape (my-lisp chose `compiler-corpus . t` as a boolean
-marker for #67, not yet the richer per-consumer status object that
-proposal sketched).
+**Closed 2026-10-08**: the Rust gate no longer carries its own third hand-copied
+`documented_fixtures()` list. It parses these 17 Markdown data rows directly
+and compares them against the pinned SENS `(compiler-corpus . t)` records.
+The remaining duplication is intentional and visible: SENS owns the executable
+corpus; this document owns the human-readable consumer-status table. A change
+to either side without the other now fails the PR gate.

@@ -86,9 +86,9 @@
    (violation "AUTHORITY-FAIL: missing docs/archive/README.md (non-normative warning)")))
 
 (за-умовою
-  ((текст-порожній? (вивід-процесу "for f in docs/archive/*/*.md; do [ -f \"$f\" ] || continue; grep -qi 'ARCHIVED' \"$f\" || echo \"$f\"; done 2>/dev/null") 1
+  ((процес-успішний? "test -z \"$(for f in docs/archive/*/*.md; do [ -f \"$f\" ] || continue; grep -qi 'ARCHIVED' \"$f\" || echo \"$f\"; done 2>/dev/null)\"") 1
    (показати "AUTHORITY OK: docs/CURRENT.md present, archive docs self-identify as archived\n"))
-  ((текст-порожній? (вивід-процесу "for f in docs/archive/*/*.md; do [ -f \"$f\" ] || continue; grep -qi 'ARCHIVED' \"$f\" || echo \"$f\"; done 2>/dev/null") 0
+  ((процес-успішний? "test -z \"$(for f in docs/archive/*/*.md; do [ -f \"$f\" ] || continue; grep -qi 'ARCHIVED' \"$f\" || echo \"$f\"; done 2>/dev/null)\"") 0
    (озброєне-порушення
      (вивід-процесу "for f in docs/archive/*/*.md; do [ -f \"$f\" ] || continue; grep -qi 'ARCHIVED' \"$f\" || echo \"$f\"; done 2>/dev/null"))))
 
@@ -105,9 +105,9 @@
 
 ; --- 7. SID8-ONLY ---
 (за-умовою
-  ((текст-порожній? (вивід-процесу "scripts/check-canon-function-table-sid8.sh 2>/dev/null")) 1
+  ((процес-успішний? "scripts/check-canon-function-table-sid8.sh >/dev/null 2>&1") 1
    (показати "AUTHORITY OK: docs/canon-function-table.md: every semantic id is a bare 8-bit binary token\n"))
-  ((текст-порожній? (вивід-процесу "scripts/check-canon-function-table-sid8.sh 2>/dev/null")) 0
+  ((процес-успішний? "scripts/check-canon-function-table-sid8.sh >/dev/null 2>&1") 0
    (озброєне-порушення (вивід-процесу "scripts/check-canon-function-table-sid8.sh 2>/dev/null"))))
 
 (показати "Lisp-first authority guard passed (C/Rust substrates allowed with provenance).\n")

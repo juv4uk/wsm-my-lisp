@@ -171,6 +171,55 @@ wsm_atom:
 1:  ret
     .size wsm_atom, . - wsm_atom
 
+/* Current exact-domain predicate mechanisms.
+ *
+ * Compatibility entrypoints above keep historical T/NIL behavior. These two
+ * entrypoints are selected only after current SENS admission.
+ *
+ * ATOM_D1 is total: atom -> PredicateBit(1), CONS -> PredicateBit(0).
+ * EQ_D1 is partial: atom/atom -> PredicateBit(1/0); if either operand is
+ * CONS, return structural EMPTY/NIL as the no-witness result. EMPTY is not
+ * PredicateBit(0).
+ */
+
+/* wsm_atom_d1(context [ignored], value: Word) -> PredicateBit Word */
+    .globl wsm_atom_d1
+    .type wsm_atom_d1, @function
+wsm_atom_d1:
+    movl    $PREDICATE_BIT1_WORD, %eax
+    testq   $TAG_MASK, %rsi
+    jnz     1f
+    movl    $PREDICATE_BIT0_WORD, %eax
+1:  ret
+    .size wsm_atom_d1, . - wsm_atom_d1
+
+/* wsm_eq_d1(context [ignored], left: Word, right: Word)
+ * -> PredicateBit Word for atom/atom, structural EMPTY for non-atom input.
+ */
+    .globl wsm_eq_d1
+    .type wsm_eq_d1, @function
+wsm_eq_d1:
+    movq    %rsi, %rax
+    andq    $TAG_MASK, %rax
+    cmpq    $TAG_CONS, %rax
+    je      .Leq_d1_empty
+    movq    %rdx, %rax
+    andq    $TAG_MASK, %rax
+    cmpq    $TAG_CONS, %rax
+    je      .Leq_d1_empty
+
+    movl    $PREDICATE_BIT0_WORD, %eax
+    cmpq    %rdx, %rsi
+    jne     .Leq_d1_done
+    movl    $PREDICATE_BIT1_WORD, %eax
+.Leq_d1_done:
+    ret
+
+.Leq_d1_empty:
+    movl    $TAG_NIL, %eax
+    ret
+    .size wsm_eq_d1, . - wsm_eq_d1
+
 /* Core1 S5 exact SID8 boxed transport.
  *
  * These two functions implement only the already-ratified target ABI

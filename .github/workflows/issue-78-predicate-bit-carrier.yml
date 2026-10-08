@@ -1,4 +1,4 @@
-name: issue 78 PredicateBit carrier candidate
+name: issue 78 exact D1 predicate runtime
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - "harness/Cargo.toml"
       - "harness/Cargo.lock"
       - "harness/src/harness_predicate_bit.rs"
+      - "harness/src/harness_predicate_ops_d1.rs"
       - "harness/tests/semantic_authority.rs"
       - ".github/workflows/issue-78-predicate-bit-carrier.yml"
   pull_request:
@@ -17,18 +18,19 @@ on:
       - "harness/Cargo.toml"
       - "harness/Cargo.lock"
       - "harness/src/harness_predicate_bit.rs"
+      - "harness/src/harness_predicate_ops_d1.rs"
       - "harness/tests/semantic_authority.rs"
       - ".github/workflows/issue-78-predicate-bit-carrier.yml"
   workflow_dispatch:
 
 jobs:
-  candidate-carrier:
+  predicate-runtime:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Verify candidate target pin
+      - name: Verify ratified target pin
         run: |
           grep -F 'b5ec3211f6bd07fb7c4a5f704875892eff145b91' harness/Cargo.toml
           grep -F 'b5ec3211f6bd07fb7c4a5f704875892eff145b91' harness/Cargo.lock
@@ -36,3 +38,5 @@ jobs:
         run: cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority -- --nocapture
       - name: Execute PredicateBit carrier witness
         run: cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-bit
+      - name: Execute current-D1 ATOM/EQ witness
+        run: cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-ops-d1

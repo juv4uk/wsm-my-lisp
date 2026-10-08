@@ -153,6 +153,49 @@ wsm_atom:
     movl    $TAG_NIL, %eax          /* low 3 bits all zero => Tag::Cons => not an atom */
 1:  ret
 
+/* Current exact-domain predicate mechanisms.
+ *
+ * Compatibility wsm_atom/wsm_eq above keep historical T/NIL behavior.
+ * Current SENS admission selects these D1 entrypoints instead.
+ */
+
+/* wsm_atom_d1(context [rcx, ignored], value: Word [rdx]) -> PredicateBit Word */
+    .globl wsm_atom_d1
+wsm_atom_d1:
+    movl    $PREDICATE_BIT1_WORD, %eax
+    movq    %rdx, %r9
+    andq    $TAG_MASK, %r9
+    cmpq    $TAG_CONS, %r9
+    jne     .Latom_d1_done_win64
+    movl    $PREDICATE_BIT0_WORD, %eax
+.Latom_d1_done_win64:
+    ret
+
+/* wsm_eq_d1(context [rcx, ignored], left [rdx], right [r8])
+ * -> PredicateBit Word for atom/atom, structural EMPTY for non-atom input.
+ */
+    .globl wsm_eq_d1
+wsm_eq_d1:
+    movq    %rdx, %rax
+    andq    $TAG_MASK, %rax
+    cmpq    $TAG_CONS, %rax
+    je      .Leq_d1_empty_win64
+    movq    %r8, %rax
+    andq    $TAG_MASK, %rax
+    cmpq    $TAG_CONS, %rax
+    je      .Leq_d1_empty_win64
+
+    movl    $PREDICATE_BIT0_WORD, %eax
+    cmpq    %r8, %rdx
+    jne     .Leq_d1_done_win64
+    movl    $PREDICATE_BIT1_WORD, %eax
+.Leq_d1_done_win64:
+    ret
+
+.Leq_d1_empty_win64:
+    movl    $TAG_NIL, %eax
+    ret
+
 /* Draft target-contract #33 PredicateBit carrier. The Win64 target mirrors
  * SysV's representation-only bit0/bit1 singleton ABI; no predicate semantics
  * are assigned in this file. */

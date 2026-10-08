@@ -181,23 +181,23 @@ wsm_atom:
  * operand is CONS, the current SENS law requires the named Type failure.
  */
 
-/* wsm_atom_d1(context [ignored], value: Word) -> PredicateBit Word */
-    .globl wsm_atom_d1
-    .type wsm_atom_d1, @function
-wsm_atom_d1:
+/* wsm_atom_predicate_bit(context [ignored], value: Word) -> PredicateBit Word */
+    .globl wsm_atom_predicate_bit
+    .type wsm_atom_predicate_bit, @function
+wsm_atom_predicate_bit:
     movl    $PREDICATE_BIT1_WORD, %eax
     testq   $TAG_MASK, %rsi
     jnz     1f
     movl    $PREDICATE_BIT0_WORD, %eax
 1:  ret
-    .size wsm_atom_d1, . - wsm_atom_d1
+    .size wsm_atom_predicate_bit, . - wsm_atom_predicate_bit
 
-/* wsm_eq_d1(context [ignored], left: Word, right: Word)
+/* wsm_eq_predicate_bit(context [ignored], left: Word, right: Word)
  * -> PredicateBit Word for atom/atom; Type failure for non-atom input.
  */
-    .globl wsm_eq_d1
-    .type wsm_eq_d1, @function
-wsm_eq_d1:
+    .globl wsm_eq_predicate_bit
+    .type wsm_eq_predicate_bit, @function
+wsm_eq_predicate_bit:
     movq    %rsi, %rax
     andq    $TAG_MASK, %rax
     cmpq    $TAG_CONS, %rax
@@ -219,7 +219,7 @@ wsm_eq_d1:
     xorl    %edx, %edx
     xorl    %ecx, %ecx
     jmp     wsm_fail
-    .size wsm_eq_d1, . - wsm_eq_d1
+    .size wsm_eq_predicate_bit, . - wsm_eq_predicate_bit
 
 /* Core1 S5 exact SID8 boxed transport.
  *

@@ -42,11 +42,11 @@
   (вивід-процесу "git -C external/sens rev-parse HEAD 2>/dev/null || true"))
 
 (за-умовою
-  ((текст-порожній? пін-підмодуля) 1
-   (озброєне-порушення "external/sens submodule not checked out -- cannot consume machine contracts"))
-  ((текст-порожній? пін-підмодуля) 0
+  ((процес-успішний? "git -C external/sens rev-parse --verify HEAD >/dev/null 2>&1") 1
    (показати "MACHINE-CONTRACT: pinned SENS = ")
-   (показати пін-підмодуля)))
+   (показати пін-підмодуля))
+  ((процес-успішний? "git -C external/sens rev-parse --verify HEAD >/dev/null 2>&1") 0
+   (озброєне-порушення "external/sens submodule not checked out -- cannot consume machine contracts")))
 
 ; --- 1. Required Lisp-owned machine contracts must exist at the pin ---
 (за-умовою

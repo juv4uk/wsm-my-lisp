@@ -40,3 +40,11 @@ jobs:
         run: cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-bit
       - name: Execute current-D1 ATOM/EQ witness
         run: cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-ops-d1
+      - name: Exact D1 EQ pair input fails through Type path
+        shell: bash
+        run: |
+          set +e
+          cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-ops-d1 -- --pair-eq-type-error
+          status=$?
+          set -e
+          test "$status" -eq 97

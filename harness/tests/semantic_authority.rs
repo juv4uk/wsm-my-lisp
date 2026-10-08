@@ -194,6 +194,20 @@ fn authority_violations(source: &str) -> Vec<String> {
         }
     }
 
+    if code.contains("wsm_eq_predicate_bit:") {
+        let body = function_body(&code, "wsm_eq_predicate_bit").unwrap_or("");
+        if body.contains("$TAG_NIL") {
+            violations.push(
+                "wsm_eq_predicate_bit must not turn pair-domain errors into structural EMPTY".into(),
+            );
+        }
+        if !body.contains("$ERR_TYPE") || !body.contains("wsm_fail") {
+            violations.push(
+                "wsm_eq_predicate_bit pair-domain rejection must use the pinned Type failure ABI".into(),
+            );
+        }
+    }
+
     if code.contains("wsm_closure_new:") {
         match equ_u64(&code, "TAG_CLOSURE") {
             Some(value) if value == Tag::Closure as u64 => {}
@@ -233,6 +247,17 @@ fn authority_violations(source: &str) -> Vec<String> {
     }
 
     violations
+}
+
+#[test]
+fn current_predicate_endpoint_names_are_ratified_by_target_v9() {
+    assert_eq!(wsm_os_target::CONTRACT_VERSION, 9);
+    for required in ["wsm_atom_predicate_bit", "wsm_eq_predicate_bit"] {
+        assert!(
+            wsm_os_target::RUNTIME_IMPORTS.contains(&required),
+            "current predicate endpoint is not ratified by pinned target ABI: {required}"
+        );
+    }
 }
 
 #[test]

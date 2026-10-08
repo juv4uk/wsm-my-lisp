@@ -32,11 +32,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify ratified target pin
         run: |
-          grep -F 'b5ec3211f6bd07fb7c4a5f704875892eff145b91' harness/Cargo.toml
-          grep -F 'b5ec3211f6bd07fb7c4a5f704875892eff145b91' harness/Cargo.lock
+          grep -F 'd3663026dbcce73e2b8e32238910c3f8f7dea833' harness/Cargo.toml
+          grep -F 'd3663026dbcce73e2b8e32238910c3f8f7dea833' harness/Cargo.lock
       - name: Semantic authority audit
         run: cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority -- --nocapture
       - name: Execute PredicateBit carrier witness
         run: cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-bit
       - name: Execute current-D1 ATOM/EQ witness
         run: cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-ops-d1
+      - name: Exact D1 EQ pair input fails through Type path
+        shell: bash
+        run: |
+          set +e
+          cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-ops-d1 -- --pair-eq-type-error
+          status=$?
+          set -e
+          test "$status" -eq 97

@@ -7,7 +7,7 @@ license-file = "../LICENSE"
 [dependencies]
 # Представлення цільового слова беремо з ратифікованого target contract,
 # а не дублюємо теги/канонічне t у witness-коді.
-wsm-os-target = { git = "https://github.com/juv4uk/wsm-target-contract.git", rev = "b5ec3211f6bd07fb7c4a5f704875892eff145b91", package = "wsm-os-target" }
+wsm-os-target = { git = "https://github.com/juv4uk/wsm-target-contract.git", rev = "d3663026dbcce73e2b8e32238910c3f8f7dea833", package = "wsm-os-target" }
 
 [[bin]]
 name = "harness-atom"

@@ -159,9 +159,9 @@ wsm_atom:
  * Current SENS admission selects these D1 entrypoints instead.
  */
 
-/* wsm_atom_d1(context [rcx, ignored], value: Word [rdx]) -> PredicateBit Word */
-    .globl wsm_atom_d1
-wsm_atom_d1:
+/* wsm_atom_predicate_bit(context [rcx, ignored], value: Word [rdx]) -> PredicateBit Word */
+    .globl wsm_atom_predicate_bit
+wsm_atom_predicate_bit:
     movl    $PREDICATE_BIT1_WORD, %eax
     movq    %rdx, %r9
     andq    $TAG_MASK, %r9
@@ -171,19 +171,19 @@ wsm_atom_d1:
 .Latom_d1_done_win64:
     ret
 
-/* wsm_eq_d1(context [rcx, ignored], left [rdx], right [r8])
- * -> PredicateBit Word for atom/atom, structural EMPTY for non-atom input.
+/* wsm_eq_predicate_bit(context [rcx, ignored], left [rdx], right [r8])
+ * -> PredicateBit Word for atom/atom; Type failure for non-atom input.
  */
-    .globl wsm_eq_d1
-wsm_eq_d1:
+    .globl wsm_eq_predicate_bit
+wsm_eq_predicate_bit:
     movq    %rdx, %rax
     andq    $TAG_MASK, %rax
     cmpq    $TAG_CONS, %rax
-    je      .Leq_d1_empty_win64
+    je      .Leq_d1_type_win64
     movq    %r8, %rax
     andq    $TAG_MASK, %rax
     cmpq    $TAG_CONS, %rax
-    je      .Leq_d1_empty_win64
+    je      .Leq_d1_type_win64
 
     movl    $PREDICATE_BIT0_WORD, %eax
     cmpq    %r8, %rdx
@@ -192,8 +192,11 @@ wsm_eq_d1:
 .Leq_d1_done_win64:
     ret
 
-.Leq_d1_empty_win64:
-    movl    $TAG_NIL, %eax
+.Leq_d1_type_win64:
+    subq    $40, %rsp
+    movl    $ERR_TYPE, %ecx
+    call    wsm_fail_win64
+    addq    $40, %rsp
     ret
 
 /* Draft target-contract #33 PredicateBit carrier. The Win64 target mirrors

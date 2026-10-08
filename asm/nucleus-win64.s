@@ -172,18 +172,18 @@ wsm_atom_d1:
     ret
 
 /* wsm_eq_d1(context [rcx, ignored], left [rdx], right [r8])
- * -> PredicateBit Word for atom/atom, structural EMPTY for non-atom input.
+ * -> PredicateBit Word for atom/atom; Type failure for non-atom input.
  */
     .globl wsm_eq_d1
 wsm_eq_d1:
     movq    %rdx, %rax
     andq    $TAG_MASK, %rax
     cmpq    $TAG_CONS, %rax
-    je      .Leq_d1_empty_win64
+    je      .Leq_d1_type_win64
     movq    %r8, %rax
     andq    $TAG_MASK, %rax
     cmpq    $TAG_CONS, %rax
-    je      .Leq_d1_empty_win64
+    je      .Leq_d1_type_win64
 
     movl    $PREDICATE_BIT0_WORD, %eax
     cmpq    %r8, %rdx
@@ -192,8 +192,11 @@ wsm_eq_d1:
 .Leq_d1_done_win64:
     ret
 
-.Leq_d1_empty_win64:
-    movl    $TAG_NIL, %eax
+.Leq_d1_type_win64:
+    subq    $40, %rsp
+    movl    $ERR_TYPE, %ecx
+    call    wsm_fail_win64
+    addq    $40, %rsp
     ret
 
 /* Draft target-contract #33 PredicateBit carrier. The Win64 target mirrors

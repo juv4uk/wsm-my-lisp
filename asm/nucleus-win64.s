@@ -159,9 +159,9 @@ wsm_atom:
  * Current SENS admission selects these D1 entrypoints instead.
  */
 
-/* wsm_atom_d1(context [rcx, ignored], value: Word [rdx]) -> PredicateBit Word */
-    .globl wsm_atom_d1
-wsm_atom_d1:
+/* wsm_atom_predicate_bit(context [rcx, ignored], value: Word [rdx]) -> PredicateBit Word */
+    .globl wsm_atom_predicate_bit
+wsm_atom_predicate_bit:
     movl    $PREDICATE_BIT1_WORD, %eax
     movq    %rdx, %r9
     andq    $TAG_MASK, %r9
@@ -171,11 +171,11 @@ wsm_atom_d1:
 .Latom_d1_done_win64:
     ret
 
-/* wsm_eq_d1(context [rcx, ignored], left [rdx], right [r8])
+/* wsm_eq_predicate_bit(context [rcx, ignored], left [rdx], right [r8])
  * -> PredicateBit Word for atom/atom; Type failure for non-atom input.
  */
-    .globl wsm_eq_d1
-wsm_eq_d1:
+    .globl wsm_eq_predicate_bit
+wsm_eq_predicate_bit:
     movq    %rdx, %rax
     andq    $TAG_MASK, %rax
     cmpq    $TAG_CONS, %rax

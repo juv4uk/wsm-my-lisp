@@ -16,6 +16,7 @@
 //! sufficient and simpler than a general reader.
 
 const CONFORMANCE: &str = include_str!("../../external/sens/tests/fixtures/conformance.lisp");
+const PARITY_DOC: &str = include_str!("../../docs/compiler-oracle-corpus-parity-2026-09-11.md");
 
 /// Extracts the quoted string value of `(key . "value")` from one line,
 /// or `None` if that key isn't present on the line.
@@ -51,75 +52,53 @@ fn tagged_fixtures() -> Vec<(String, Outcome)> {
         .collect()
 }
 
-/// The exact 17 fixtures documented in
-/// docs/compiler-oracle-corpus-parity-2026-09-11.md, as of sens
-/// commit d3e5b93d (the pinned external/sens submodule commit).
-/// Update BOTH this list and that document together if sens adds,
-/// removes, or changes a `compiler-corpus` fixture -- that is the
-/// point of this test failing: it forces the parity doc to stay honest
-/// rather than silently drifting from the real corpus.
-fn documented_fixtures() -> Vec<(&'static str, Outcome)> {
-    vec![
-        ("(quote radio)", Outcome::Expected("radio".into())),
-        ("(atom (quote radio))", Outcome::Expected("(structural-kind atom)".into())),
-        (
-            "(eq (quote radio) (quote radio))",
-            Outcome::Expected("(identity-relation same)".into()),
-        ),
-        (
-            "(car (quote (radio antenna)))",
-            Outcome::Expected("radio".into()),
-        ),
-        (
-            "(cdr (quote (radio antenna)))",
-            Outcome::Expected("(antenna)".into()),
-        ),
-        (
-            "(cons (quote radio) (quote (antenna)))",
-            Outcome::Expected("(radio antenna)".into()),
-        ),
-        (
-            "(cond (() (quote wrong)) (t (quote right)))",
-            Outcome::Expected("right".into()),
-        ),
-        ("(/ 5 6 8 7)", Outcome::Expected("5/336".into())),
-        (
-            "(eq (lambda (x) x) (lambda (x) x))",
-            Outcome::Expected("(identity-relation distinct)".into()),
-        ),
-        ("(defmacro foo)", Outcome::Error("Arity".into())),
-        (
-            "(def count-down (lambda (n) (cond ((eq n 0) (quote done)) (t (count-down (- n 1)))))) (count-down 100000)",
-            Outcome::Expected("done".into()),
-        ),
-        (
-            "((lambda (a b . rest) rest) 1 2 3 4 5)",
-            Outcome::Expected("(3 4 5)".into()),
-        ),
-        (
-            "((lambda args args) 1 2 3)",
-            Outcome::Expected("(1 2 3)".into()),
-        ),
-        (
-            "((lambda (a b . rest) a) 1)",
-            Outcome::Error("Arity".into()),
-        ),
-        (
-            "(let ((second (lambda (x) (quote shadowed)))) (second (quote (1 2 3))))",
-            Outcome::Expected("shadowed".into()),
-        ),
-        (
-            "(let ((car (lambda (x) (quote shadowed)))) (car (quote (1 2))))",
-            Outcome::Error("InvalidForm".into()),
-        ),
-        (
-            "(defmacro my-list items (cons (quote quote) (cons items (quote ())))) (my-list 1 2 3)",
-            Outcome::Expected("(1 2 3)".into()),
-        ),
-    ]
-    .into_iter()
-    .map(|(expr, outcome)| (expr, outcome))
-    .collect()
+/// Parse the 17 data rows from the parity document itself.
+///
+/// This deliberately removes the third hand-copied fixture list that used to
+/// live in this Rust test. There are now only two authorities to compare:
+/// pinned SENS corpus data and this repository's human-readable parity table.
+fn documented_fixtures() -> Vec<(String, Outcome)> {
+    PARITY_DOC
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim_start();
+            trimmed.starts_with("| ") &&
+                trimmed.chars().nth(2).is_some_and(|ch| ch.is_ascii_digit())
+        })
+        .map(|line| {
+            let columns: Vec<_> = line.split('|').map(str::trim).collect();
+            assert!(
+                columns.len() >= 4,
+                "malformed compiler parity table row: {line}"
+            );
+
+            let expr = columns[2]
+                .strip_prefix('`')
+                .and_then(|value| value.strip_suffix('`'))
+                .unwrap_or_else(|| panic!("parity expr is not code-formatted: {}", columns[2]))
+                .to_string();
+
+            let observed = columns[3];
+            let outcome = if let Some(error) = observed.strip_prefix("error `") {
+                Outcome::Error(
+                    error
+                        .strip_suffix('`')
+                        .unwrap_or_else(|| panic!("malformed error cell: {observed}"))
+                        .to_string(),
+                )
+            } else {
+                Outcome::Expected(
+                    observed
+                        .strip_prefix('`')
+                        .and_then(|value| value.strip_suffix('`'))
+                        .unwrap_or_else(|| panic!("parity expected value is not code-formatted: {observed}"))
+                        .to_string(),
+                )
+            };
+
+            (expr, outcome)
+        })
+        .collect()
 }
 
 #[test]

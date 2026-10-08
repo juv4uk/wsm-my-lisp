@@ -1,0 +1,28 @@
+name: Core1 second native x86 mechanism
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/core1-second-native-mechanism.yml"
+      - "harness/src/harness_core1_second_machine.rs"
+      - "harness/Cargo.toml"
+      - "harness/Cargo.lock"
+      - "asm/nucleus.s"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core1-second-machine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Syntax and format of focused native witness
+        run: rustfmt --edition 2021 --check harness/src/harness_core1_second_machine.rs
+      - name: Pinned target-contract vs x86 nucleus authority
+        run: cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority
+      - name: Real x86-64 Core1 SECOND machine-effect witness
+        run: cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-core1-second-machine

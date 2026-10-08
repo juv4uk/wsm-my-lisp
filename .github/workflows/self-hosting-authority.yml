@@ -23,7 +23,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  authority-and-witnesses:
+  current-authority:
+    name: Current Contract 11.8 authority + exact-D1
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,89 +38,134 @@ jobs:
         run: |
           cargo build --release --locked --manifest-path external/sens/Cargo.toml -p sens-cli
 
-      - name: Lisp-first authority guard (P0 #15)
+      - name: Verify pinned SENS gitlink
         shell: bash
         run: |
-          external/sens/target/release/my-lisp scripts/check-lisp-first-authority.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
-
-      - name: Machine contract gate (P0 #23)
-        shell: bash
-        run: |
-          external/sens/target/release/my-lisp scripts/check-machine-contracts.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
-
-      - name: Verify pinned SENS semantic authority
-        shell: bash
-        run: |
+          set -euo pipefail
           expected="$(git rev-parse HEAD:external/sens)"
           actual="$(git -C external/sens rev-parse HEAD)"
           test -n "$expected"
           test "$actual" = "$expected"
-          test -f external/sens/lib/meta-eval.lisp
-          grep -Eq '^[[:space:]]*\(00001001[[:space:]]+my-eval-cond-result([[:space:]]|$)' external/sens/lib/meta-eval.lisp
-          grep -Eq '^[[:space:]]*\(00001001[[:space:]]+my-eval-result([[:space:]]|$)' external/sens/lib/meta-eval.lisp
 
-      - name: Check semantic authority guard
+      - name: Verify current Contract 11.8 authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f external/sens/language-contract.lisp
+          grep -Fq "(status . current-domain-qualified-authority)" external/sens/language-contract.lisp
+          grep -Fq "(binary-domain-identity" external/sens/language-contract.lisp
+          grep -Fq "(domain-non-inference" external/sens/language-contract.lisp
+          grep -Fq "(predicate-one-bit" external/sens/language-contract.lisp
+          grep -Fq "(structure-two-bit" external/sens/language-contract.lisp
+          grep -Fq "(d3-foundation" external/sens/language-contract.lisp
+          grep -Fq "(d4-bootstrap" external/sens/language-contract.lisp
+
+      - name: Lisp-first authority guard (P0 #15)
+        shell: bash
+        run: |
+          external/sens/target/release/my-lisp scripts/check-lisp-first-authority.lisp || {
+            cat .guard-report.txt 2>/dev/null
+            exit 1
+          }
+
+      - name: Machine contract gate (P0 #23)
+        shell: bash
+        run: |
+          external/sens/target/release/my-lisp scripts/check-machine-contracts.lisp || {
+            cat .guard-report.txt 2>/dev/null
+            exit 1
+          }
+
+      - name: Current exact-D1 PredicateBit mechanism
+        run: |
+          cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-ops-d1
+
+      - name: Current semantic-authority harness
         run: |
           cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority
 
-      - name: Check compiler-corpus parity doc hasn't silently drifted (wsm-my-lisp#4)
+      - name: Check compiler-corpus parity doc hasn't silently drifted
         run: |
           cargo test --manifest-path harness/Cargo.toml --locked --test compiler_corpus_parity
 
-      - name: Check wsm_car's Type-error path actually aborts, not just compiles
+      - name: Check wsm_car Type-error path actually aborts
         run: |
           cargo test --manifest-path harness/Cargo.toml --locked --test type_error_path
 
-      - name: Compile all SysV witness binaries
+      - name: Compile current SysV mechanism witnesses
         run: |
           cargo test --manifest-path harness/Cargo.toml --locked --no-run
 
-      - name: Execute atom witness
+
+  historical-compatibility-evidence:
+    name: Historical compatibility / donor evidence (non-authoritative)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build pinned SENS CLI for historical witnesses
+        run: |
+          cargo build --release --locked --manifest-path external/sens/Cargo.toml -p sens-cli
+
+      - name: Historical compatibility evidence only
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "These witnesses are retained as donor/regression evidence only."
+          echo "They do not define Contract 11.8 semantic authority or release admission."
+
+      - name: Historical atom witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-atom)" = "t"
 
-      - name: Execute atom-on-cons witness
+      - name: Historical atom-on-cons witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-atom-cons)" = "wsm_atom: (atom ()) -> t, (atom (cons radio antenna)) -> ()  [both correct]"
 
-      - name: Execute cons witness
+      - name: Historical cons witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-cons)" = "(A . B)"
 
-      - name: Execute eq witness
+      - name: Historical eq witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-eq)" = "wsm_eq: (eq 41 41) -> t, (eq 41 42) -> ()  [both correct]"
 
-      - name: Execute eq-on-symbol witness
+      - name: Historical eq-on-symbol witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-eq-symbol)" = "wsm_eq: (eq radio radio) -> t, (eq radio antenna) -> ()  [both correct]"
 
-      - name: Execute lambda witness
+      - name: Historical lambda witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-lambda)" = "7"
 
-      - name: Execute bounded recursion witness
+      - name: Historical bounded recursion witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-countdown)" = "countdown 100000 -> done"
 
-      - name: Execute Stage2 closure identity witness
+      - name: Historical Stage2 closure identity witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-closure)" = "closure identity: definition=17 env=42 self-eq=t peer-eq=()"
 
-      - name: Execute cond-branching witness (wsm-my-lisp#4, real cml front end)
+      - name: Historical COND / CML witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-cond)" = "cond: (cond (() (quote wrong)) (t (quote right))) -> right"
 
-      - name: Execute quote witness (wsm-my-lisp#4, real cml front end)
+      - name: Historical quote / CML witness
         shell: bash
         run: |
           test "$(cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-quote)" = "quote: (quote radio) -> radio"

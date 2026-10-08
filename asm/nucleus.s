@@ -53,6 +53,18 @@
     .equ SID8_ENTRY_BYTES, 2
     .equ SID8_CAPACITY,  256
 
+    /* Draft target-contract #33 / v8 candidate. This nucleus admits one
+     * bootstrap runtime context, so its two process-global singleton slots are
+     * exactly the two singleton objects for that sole admitted context. The
+     * target layer transports bit 0/1 only; SENS owns predicate meaning. */
+    .equ BOXED_KIND_PREDICATE_BIT, 5
+    .equ PREDICATE_BIT_BITS,       1
+    .equ PREDICATE_ENTRY_BYTES,    2
+    .equ PREDICATE_BIT0_HANDLE,  257
+    .equ PREDICATE_BIT1_HANDLE,  258
+    .equ PREDICATE_BIT0_WORD, (PREDICATE_BIT0_HANDLE << 3) | TAG_BOXED
+    .equ PREDICATE_BIT1_WORD, (PREDICATE_BIT1_HANDLE << 3) | TAG_BOXED
+
     /* wsm_os_target::ErrorCode -- mechanical projection, same pattern as
      * SYM_T_WORD above. Only the two variants this nucleus actually raises
      * are named here; harness/tests/semantic_authority.rs checks these
@@ -239,6 +251,73 @@ wsm_sid8_bits:
     jmp     wsm_fail
     .size wsm_sid8_bits, . - wsm_sid8_bits
 
+/* Draft v8 exact PredicateBit carrier.
+ *
+ * These accessors are representation-only. They expose canonical singleton
+ * target words for exact bit 0 and bit 1 and recover the exact bit. The
+ * function names deliberately use 0/1 rather than NO/YES so this target
+ * runtime does not mint predicate semantics.
+ */
+
+    .globl wsm_predicate_bit_0
+    .type wsm_predicate_bit_0, @function
+wsm_predicate_bit_0:
+    movl    $PREDICATE_BIT0_WORD, %eax
+    ret
+    .size wsm_predicate_bit_0, . - wsm_predicate_bit_0
+
+    .globl wsm_predicate_bit_1
+    .type wsm_predicate_bit_1, @function
+wsm_predicate_bit_1:
+    movl    $PREDICATE_BIT1_WORD, %eax
+    ret
+    .size wsm_predicate_bit_1, . - wsm_predicate_bit_1
+
+    .globl wsm_predicate_bit_bits
+    .type wsm_predicate_bit_bits, @function
+wsm_predicate_bit_bits:
+    movq    %rsi, %rdx
+    movq    %rsi, %rax
+    movq    %rax, %rcx
+    andq    $TAG_MASK, %rcx
+    cmpq    $TAG_BOXED, %rcx
+    jne     .Lpredicate_bits_type
+
+    shrq    $3, %rax
+    cmpq    $PREDICATE_BIT0_HANDLE, %rax
+    je      .Lpredicate_bits_0
+    cmpq    $PREDICATE_BIT1_HANDLE, %rax
+    je      .Lpredicate_bits_1
+    jmp     .Lpredicate_bits_abi
+
+.Lpredicate_bits_0:
+    leaq    wsm_predicate_bit_table(%rip), %rcx
+    cmpb    $BOXED_KIND_PREDICATE_BIT, 0(%rcx)
+    jne     .Lpredicate_bits_abi
+    cmpb    $0, 1(%rcx)
+    jne     .Lpredicate_bits_abi
+    xorl    %eax, %eax
+    ret
+
+.Lpredicate_bits_1:
+    leaq    wsm_predicate_bit_table+PREDICATE_ENTRY_BYTES(%rip), %rcx
+    cmpb    $BOXED_KIND_PREDICATE_BIT, 0(%rcx)
+    jne     .Lpredicate_bits_abi
+    cmpb    $1, 1(%rcx)
+    jne     .Lpredicate_bits_abi
+    movl    $1, %eax
+    ret
+
+.Lpredicate_bits_type:
+    movl    $ERR_TYPE, %esi
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+.Lpredicate_bits_abi:
+    movl    $ERR_ABI_VIOLATION, %esi
+    xorl    %ecx, %ecx
+    jmp     wsm_fail
+    .size wsm_predicate_bit_bits, . - wsm_predicate_bit_bits
+
 /* Stage2 closure ABI.
  *
  * Це не нова Lisp-примітива. Closure=5, layout дескриптора і три імпорти
@@ -379,9 +458,16 @@ wsm_closure_arena:
 wsm_sid8_table:
     .zero SID8_ENTRY_BYTES * SID8_CAPACITY
 
-    /* .data, not .bss: these cells hold initialized addresses (relocations),
-     * which a zero-initialized .bss section cannot carry. */
+    /* PredicateBit singleton descriptors contain initialized bytes and must
+     * therefore live in .data, not .bss. Handles 257/258 extend the same
+     * runtime-owned Boxed handle space immediately after SID8's 1..256. */
     .section .data
+    .align 2
+wsm_predicate_bit_table:
+    .byte BOXED_KIND_PREDICATE_BIT, 0
+    .byte BOXED_KIND_PREDICATE_BIT, 1
+
+    /* These cells also hold initialized addresses (relocations). */
     .align 8
 wsm_arena_next:
     .quad wsm_arena

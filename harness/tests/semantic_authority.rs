@@ -1,7 +1,7 @@
 use wsm_os_target::{
-    BoxedKind, BoxedSid8, CLOSURE_ALIGNMENT, CLOSURE_BYTES, CLOSURE_DEFINITION_ID_OFFSET,
-    CLOSURE_ENVIRONMENT_REF_OFFSET, CANONICAL_T, NIL, SID8_BITS, SYMBOL_ID_MAX, TAG_BITS,
-    TAG_MASK, Tag,
+    BoxedKind, BoxedPredicateBit, BoxedSid8, CLOSURE_ALIGNMENT, CLOSURE_BYTES,
+    CLOSURE_DEFINITION_ID_OFFSET, CLOSURE_ENVIRONMENT_REF_OFFSET, CANONICAL_T, NIL,
+    PREDICATE_BIT_BITS, SID8_BITS, SYMBOL_ID_MAX, TAG_BITS, TAG_MASK, Tag,
 };
 
 const SYSV_NUCLEUS: &str = include_str!("../../asm/nucleus.s");
@@ -140,6 +140,56 @@ fn authority_violations(source: &str) -> Vec<String> {
         if !bits_body.contains("$TAG_BOXED") || !bits_body.contains("$BOXED_KIND_SID8") {
             violations.push(
                 "wsm_sid8_bits must validate target Boxed/Sid8 before returning bits".into(),
+            );
+        }
+    }
+
+    if code.contains("wsm_predicate_bit_0:") {
+        for (name, expected) in [
+            ("TAG_BOXED", Tag::Boxed as u64),
+            ("BOXED_KIND_PREDICATE_BIT", BoxedKind::PredicateBit as u64),
+            ("PREDICATE_BIT_BITS", PREDICATE_BIT_BITS as u64),
+            (
+                "PREDICATE_ENTRY_BYTES",
+                core::mem::size_of::<BoxedPredicateBit>() as u64,
+            ),
+        ] {
+            match equ_u64(&code, name) {
+                Some(value) if value == expected => {}
+                other => violations.push(format!(
+                    "{name} drift: {other:?}, contract={expected}"
+                )),
+            }
+        }
+
+        for label in [
+            "wsm_predicate_bit_0",
+            "wsm_predicate_bit_1",
+            "wsm_predicate_bit_bits",
+        ] {
+            if function_body(&code, label).is_none() {
+                violations.push(format!(
+                    "cannot inspect candidate PredicateBit ABI function {label}"
+                ));
+            }
+        }
+
+        for label in ["wsm_predicate_bit_0", "wsm_predicate_bit_1"] {
+            let body = function_body(&code, label).unwrap_or("");
+            if body.contains("SYM_T_WORD") || body.contains("TAG_NIL") {
+                violations.push(format!(
+                    "{label} must not alias PredicateBit with Lisp truth/absence carriers"
+                ));
+            }
+        }
+
+        let bits_body = function_body(&code, "wsm_predicate_bit_bits").unwrap_or("");
+        if !bits_body.contains("$TAG_BOXED")
+            || !bits_body.contains("$BOXED_KIND_PREDICATE_BIT")
+        {
+            violations.push(
+                "wsm_predicate_bit_bits must validate Boxed/PredicateBit before exposing bits"
+                    .into(),
             );
         }
     }

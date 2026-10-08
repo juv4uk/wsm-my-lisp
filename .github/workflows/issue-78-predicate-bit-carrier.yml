@@ -1,0 +1,38 @@
+name: issue 78 PredicateBit carrier candidate
+
+on:
+  push:
+    paths:
+      - "asm/nucleus.s"
+      - "asm/nucleus-win64.s"
+      - "harness/Cargo.toml"
+      - "harness/Cargo.lock"
+      - "harness/src/harness_predicate_bit.rs"
+      - "harness/tests/semantic_authority.rs"
+      - ".github/workflows/issue-78-predicate-bit-carrier.yml"
+  pull_request:
+    paths:
+      - "asm/nucleus.s"
+      - "asm/nucleus-win64.s"
+      - "harness/Cargo.toml"
+      - "harness/Cargo.lock"
+      - "harness/src/harness_predicate_bit.rs"
+      - "harness/tests/semantic_authority.rs"
+      - ".github/workflows/issue-78-predicate-bit-carrier.yml"
+  workflow_dispatch:
+
+jobs:
+  candidate-carrier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify candidate target pin
+        run: |
+          grep -F 'b5ec3211f6bd07fb7c4a5f704875892eff145b91' harness/Cargo.toml
+          grep -F 'b5ec3211f6bd07fb7c4a5f704875892eff145b91' harness/Cargo.lock
+      - name: Semantic authority audit
+        run: cargo test --manifest-path harness/Cargo.toml --locked --test semantic_authority -- --nocapture
+      - name: Execute PredicateBit carrier witness
+        run: cargo run --quiet --manifest-path harness/Cargo.toml --locked --bin harness-predicate-bit

@@ -10,7 +10,7 @@ on:
 
 jobs:
   core1-compiler-self-source:
-    runs-on: [self-hosted, author, guix]
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout wsm-my-lisp with full local history
         uses: actions/checkout@v5

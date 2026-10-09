@@ -1,0 +1,31 @@
+name: Historical Lisp encoder research provenance
+
+on:
+  pull_request:
+    paths:
+      - "docs/research/gold-ideas-lisp-to-machine-code-2026-09-14.md"
+      - "docs/research/lisp-machine-code-encoder-candidates-2026-09-14.md"
+      - ".github/workflows/historical-encoder-research-provenance.yml"
+  push:
+    paths:
+      - "docs/research/gold-ideas-lisp-to-machine-code-2026-09-14.md"
+      - "docs/research/lisp-machine-code-encoder-candidates-2026-09-14.md"
+      - ".github/workflows/historical-encoder-research-provenance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-blob-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare archived research to historical Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object docs/research/gold-ideas-lisp-to-machine-code-2026-09-14.md)" = "1a2989c847f1b84139b753a8fc3c9371b12bf0f9"
+          test "$(git hash-object docs/research/lisp-machine-code-encoder-candidates-2026-09-14.md)" = "b6782c6dc12bdec7ad5bdbe73f405543a6d36bd8"
+          echo "ARCHIVED-ENCODER-RESEARCH: PASS; original 2026-09-14 source blobs unchanged"

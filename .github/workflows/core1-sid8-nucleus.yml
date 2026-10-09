@@ -23,7 +23,6 @@ jobs:
       RUSTC_WRAPPER: ""
       CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       TARGET_CONTRACT_COMMIT: d3663026dbcce73e2b8e32238910c3f8f7dea833
-      TARGET_CONTRACT_CLONE: /home/agents/GitHub/wsm-target-contract
     steps:
       - name: Checkout wsm-my-lisp without unrelated private submodules
         uses: actions/checkout@v5
@@ -31,17 +30,12 @@ jobs:
           submodules: false
           fetch-depth: 1
 
-      - name: Route pinned target-contract dependency to owner-local clone
+      - name: Verify pinned target contract from GitHub
         shell: bash
         run: |
           set -euo pipefail
-          test -d "$TARGET_CONTRACT_CLONE/.git"
-          git -C "$TARGET_CONTRACT_CLONE" cat-file -e "$TARGET_CONTRACT_COMMIT^{commit}"
-          cfg="$RUNNER_TEMP/core1-sid8-gitconfig"
-          : > "$cfg"
-          git config --file "$cfg" protocol.file.allow always
-          git config --file "$cfg" url."file://$TARGET_CONTRACT_CLONE".insteadOf https://github.com/juv4uk/wsm-target-contract.git
-          echo "GIT_CONFIG_GLOBAL=$cfg" >> "$GITHUB_ENV"
+          git clone --quiet https://github.com/juv4uk/wsm-target-contract.git "$RUNNER_TEMP/wsm-target-contract"
+          git -C "$RUNNER_TEMP/wsm-target-contract" cat-file -e "$TARGET_CONTRACT_COMMIT^{commit}"
 
       - name: Diff hygiene
         run: git diff --check

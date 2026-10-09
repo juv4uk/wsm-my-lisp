@@ -10,26 +10,20 @@ on:
 
 jobs:
   core1-compiler-self-source:
-    runs-on: [self-hosted, author, guix]
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout wsm-my-lisp with full local history
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Prepare exact source histories from canonical local clones
+      - name: Clone exact source histories from GitHub
         shell: bash
         run: |
           set -euo pipefail
-          SENS_CLONE=/home/agents/GitHub/sens
-          MCCARTHY_CLONE=/home/agents/GitHub/mccarthy-eval
-          test -d "$SENS_CLONE/.git"
-          test -d "$MCCARTHY_CLONE/.git"
-          git -C "$SENS_CLONE" fetch --quiet origin --prune
-          git -C "$MCCARTHY_CLONE" fetch --quiet origin --prune
-          rm -rf "$GITHUB_WORKSPACE/sens-upstream" "$GITHUB_WORKSPACE/mccarthy-eval"
-          git clone --quiet --no-hardlinks "$SENS_CLONE" "$GITHUB_WORKSPACE/sens-upstream"
-          git clone --quiet --no-hardlinks "$MCCARTHY_CLONE" "$GITHUB_WORKSPACE/mccarthy-eval"
+          # Source histories are cloned from GitHub, never from /home/agents.
+          git clone --quiet https://github.com/juv4uk/sens.git "$GITHUB_WORKSPACE/sens-upstream"
+          git clone --quiet https://github.com/juv4uk/mccarthy-eval.git "$GITHUB_WORKSPACE/mccarthy-eval"
           git -C "$GITHUB_WORKSPACE/sens-upstream" log -1 --format='sens %H'
           git -C "$GITHUB_WORKSPACE/mccarthy-eval" log -1 --format='mccarthy-eval %H'
 

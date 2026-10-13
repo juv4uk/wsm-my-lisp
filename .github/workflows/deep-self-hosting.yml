@@ -1,6 +1,11 @@
 name: deep self-hosting gate
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/check-machine-contracts.sh"
+      - ".github/workflows/deep-self-hosting.yml"
   schedule:
     # 00:30 UTC = 03:30 in Ukraine during summer time, 02:30 in winter.
     - cron: "30 0 * * *"

@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "scripts/check-machine-contracts.sh"
+      - "docs/compiler-oracle-corpus-parity-2026-09-11.md"
+      - "harness/tests/compiler_corpus_parity.rs"
       - ".github/workflows/deep-self-hosting.yml"
   schedule:
     # 00:30 UTC = 03:30 in Ukraine during summer time, 02:30 in winter.

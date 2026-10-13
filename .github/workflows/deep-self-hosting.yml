@@ -44,10 +44,12 @@ jobs:
         run: |
           cargo build --release --locked --manifest-path external/sens/Cargo.toml -p sens-cli
 
-      - name: Machine contract gate (P0 #23, nightly drift watchdog)
+      - name: Pinned SENS machine-import contract — mechanical audit, no semantic verdict
         shell: bash
         run: |
-          external/sens/target/release/my-lisp scripts/check-machine-contracts.lisp || { cat .guard-report.txt 2>/dev/null; exit 1; }
+          set -euo pipefail
+          bash -n scripts/check-machine-contracts.sh
+          bash scripts/check-machine-contracts.sh
 
       - name: Run complete harness test surface
         run: cargo test --manifest-path harness/Cargo.toml --locked --all-targets --verbose

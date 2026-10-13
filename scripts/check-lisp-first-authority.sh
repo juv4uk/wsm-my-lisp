@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine-checkable authority guard for wsm-my-lisp (owner P0 #15).
+# Machine-checkable LOCAL PROVENANCE guard (CI_GLUE_NO_SEMANTICS).
 #
 # Core self-hosting path is Lisp-first. C and Rust are permitted as explicitly
 # proven bootstrap/runtime/tooling substrates. The Rust host embed that used to
@@ -53,12 +53,12 @@ if [[ -f .github/workflows/self-hosting-authority.yml ]]; then
 fi
 
 
-# --- 7. SID8-ONLY: function identity is a bare 8-bit binary token, never a
-# decimal/hex/short alias (wsm-my-lisp#49, ecosystem#16, 2026-09-23). See
-# check-canon-function-table-sid8.sh for what this actually checks and why.
+# --- 7. Historical W8 table projection: retain byte-exact provenance of
+# the old semantic-registry export. This does NOT establish semantic identity
+# or override the current exact-width SENS domain ladder.
 bad_ids=$(scripts/check-canon-function-table-sid8.sh) || \
-  fail "docs/canon-function-table.md has a non-SID8 id column:
+  fail "historical W8 projection contains malformed coordinate:
 $bad_ids"
-ok "docs/canon-function-table.md: every semantic id is a bare 8-bit binary token"
+ok "docs/canon-function-table.md: historical W8 coordinates preserved; no semantic authority"
 
-echo "Lisp-first authority guard passed (C/Rust substrates allowed with provenance)."
+echo "LOCAL_SOURCE_AUDIT=PASS executor=bash role=CI_GLUE_NO_SEMANTICS; C/Rust substrates allowed with provenance"
